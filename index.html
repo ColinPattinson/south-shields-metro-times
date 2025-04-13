@@ -1,35 +1,35 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>South Shields Metro Departures</title>
+    <title>South Shields Metro Times</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            text-align: center;
+            font-family: Open Sans, sans-serif;
             margin: 20px;
         }
-        h1 {
-            color: #333;
+        #departures {
+            margin-bottom: 20px;
         }
-        .departures {
-            margin-top: 20px;
-        }
-        .departure {
-            margin-bottom: 10px;
+        #last-updated {
+            font-size: 14px;
+            color: gray;
         }
     </style>
 </head>
 <body>
     <h1>South Shields Metro Departures</h1>
-    <div id="departures" class="departures">Loading...</div>
+    <div id="departures">Loading...</div>
+    <div id="last-updated">Last updated: Never</div>
 
     <script>
+        const stationCode = "SSS"; // South Shields station code
+        const platformNumber = 2; // Replace with the desired platform number
+        const apiUrl = `https://metro-rti.nexus.org.uk/api/times/${stationCode}/${platformNumber}`;
+
+        // Function to fetch departures from the API
         async function fetchDepartures() {
-            const stationCode = "SSS"; // South Shields station code
-            const platformNumber = 2; // Adjust platform number as needed
-            const apiUrl = `https://metro-rti.nexus.org.uk/api/times/${stationCode}/${platformNumber}`;
-            
             try {
                 const response = await fetch(apiUrl, {
                     headers: {
@@ -48,9 +48,10 @@
             }
         }
 
+        // Function to display fetched departures on the page
         function displayDepartures(data) {
             const departuresContainer = document.getElementById("departures");
-            departuresContainer.innerHTML = ""; // Clear loading text
+            departuresContainer.innerHTML = ""; // Clear previous content
 
             if (data.length === 0) {
                 departuresContainer.innerText = "No upcoming departures.";
@@ -63,10 +64,17 @@
                 departureElement.innerText = `Train ${departure.trn}: Due in ${departure.dueIn} minutes`;
                 departuresContainer.appendChild(departureElement);
             });
+
+            // Update 'Last updated' timestamp
+            const now = new Date();
+            document.getElementById("last-updated").innerText = `Last updated: ${now.toLocaleTimeString()}`;
         }
 
-        // Fetch departures on page load
+        // Initial fetch of departures
         fetchDepartures();
+
+        // Set interval to update departures every 15 seconds
+        setInterval(fetchDepartures, 15000);
     </script>
 </body>
 </html>
