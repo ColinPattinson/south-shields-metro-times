@@ -6,75 +6,184 @@
     <title>South Shields Metro Times</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Open Sans, sans-serif;
             margin: 20px;
         }
-        #departures {
-            margin-bottom: 20px;
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+        .card {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .hour-group {
+            margin-bottom: 15px;
+        }
+        .hour-header {
+            font-weight: bold;
+            color: #2c3e50;
         }
         #last-updated {
-            font-size: 14px;
-            color: gray;
+            margin-top: 20px;
+            color: #7f8c8d;
+            font-size: 0.9em;
         }
     </style>
 </head>
 <body>
     <h1>South Shields Metro Departures</h1>
-    <div id="departures">Loading...</div>
+    <div class="container">
+        <div class="card">
+            <h2>Live Departures</h2>
+            <div id="departures">Loading...</div>
+        </div>
+        <div class="card">
+            <h2>Scheduled Times</h2>
+            <div id="scheduled-times"></div>
+        </div>
+    </div>
     <div id="last-updated">Last updated: Never</div>
 
     <script>
-        const stationCode = "SSS"; // South Shields station code
-        const platformNumber = 2; // Replace with the desired platform number
-        const apiUrl = `https://metro-rti.nexus.org.uk/api/times/${stationCode}/${platformNumber}`;
-
-        // Function to fetch departures from the API
-        async function fetchDepartures() {
-            try {
-                const response = await fetch(apiUrl, {
-                    headers: {
-                        "User-Agent": "okhttp/3.12.1"
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Error fetching data: ${response.status}`);
-                }
-
-                const data = await response.json();
-                displayDepartures(data);
-            } catch (error) {
-                document.getElementById("departures").innerText = `Failed to load data: ${error.message}`;
+        // Nexus timetable data for Platform 2
+        const schedules = {
+            weekday: {
+                5: [44, 56],
+                6: [8, 20, 32, 44, 56],
+                7: [8, 20, 32, 44, 56],
+                8: [8, 20, 32, 44, 56],
+                9: [8, 20, 32, 44, 56],
+                10: [8, 20, 32, 44, 56],
+                11: [8, 20, 32, 44, 56],
+                12: [8, 20, 32, 44, 56],
+                13: [8, 20, 32, 44, 56],
+                14: [8, 20, 32, 44, 56],
+                15: [8, 20, 30, 44, 56],
+                16: [8, 20, 32, 44, 56],
+                17: [8, 20, 32, 44, 56],
+                18: [11, 26, 35, 41, 56],
+                19: [11, 26, 41, 56],
+                20: [11, 26, 41, 56],
+                21: [11, 26, 41, 56],
+                22: [11, 26, 41, 56],
+                23: [11, 26, 41, 56]
+            },
+            saturday: {
+                6: [56],
+                7: [26, 56],
+                8: [26, 56],
+                9: [26, 56],
+                10: [11, 26, 41, 56],
+                11: [11, 26, 41, 56],
+                12: [11, 26, 41, 56],
+                13: [11, 26, 41, 56],
+                14: [11, 26, 41, 56],
+                15: [11, 26, 41, 56],
+                16: [11, 26, 41, 56],
+                17: [11, 26, 41, 56],
+                18: [11, 26, 41, 56],
+                19: [11, 26, 41, 56],
+                20: [11, 26, 41, 56],
+                21: [11, 26, 41, 56],
+                22: [11, 26, 41, 56],
+                23: [11, 26, 41, 56]
+            },
+            sunday: {
+                6: [56],
+                7: [26, 56],
+                8: [26, 56],
+                9: [26, 56],
+                10: [11, 26, 41, 56],
+                11: [11, 26, 41, 56],
+                12: [11, 26, 41, 56],
+                13: [11, 26, 41, 56],
+                14: [11, 26, 41, 56],
+                15: [11, 26, 41, 56],
+                16: [11, 26, 41, 56],
+                17: [11, 26, 41, 56],
+                18: [11, 26, 41, 56],
+                19: [11, 26, 41, 56],
+                20: [11, 26, 41, 56],
+                21: [11, 26, 41, 56],
+                22: [11, 26, 41, 56],
+                23: [11, 26, 41, 56]
             }
+        };
+
+        function getScheduleForDay() {
+            const today = new Date();
+            const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            
+            if (dayOfWeek === 0) return schedules.sunday;
+            if (dayOfWeek === 6) return schedules.saturday;
+            return schedules.weekday;
         }
 
-        // Function to display fetched departures on the page
-        function displayDepartures(data) {
-            const departuresContainer = document.getElementById("departures");
-            departuresContainer.innerHTML = ""; // Clear previous content
-
-            if (data.length === 0) {
-                departuresContainer.innerText = "No upcoming departures.";
-                return;
-            }
-
-            data.forEach(departure => {
-                const departureElement = document.createElement("div");
-                departureElement.className = "departure";
-                departureElement.innerText = `Train ${departure.trn}: Due in ${departure.dueIn} minutes`;
-                departuresContainer.appendChild(departureElement);
+        function displayScheduledTimes() {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const schedule = getScheduleForDay();
+            const container = document.getElementById('scheduled-times');
+            
+            // Show current hour and next hour
+            const hoursToShow = [currentHour, currentHour + 1];
+            
+            let html = '';
+            hoursToShow.forEach(hour => {
+                const minutes = schedule[hour] || [];
+                if (minutes.length > 0) {
+                    html += `
+                        <div class="hour-group">
+                            <div class="hour-header">${hour.toString().padStart(2, '0')}:00</div>
+                            ${minutes.map(m => `
+                                <div>${hour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}</div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
             });
 
-            // Update 'Last updated' timestamp
-            const now = new Date();
-            document.getElementById("last-updated").innerText = `Last updated: ${now.toLocaleTimeString()}`;
+            container.innerHTML = html || '<div>No scheduled departures</div>';
         }
 
-        // Initial fetch of departures
-        fetchDepartures();
+        // Live departures functionality
+        async function fetchDepartures() {
+            try {
+                const response = await fetch('https://metro-rti.nexus.org.uk/api/times/SSS/2', {
+                    headers: { "User-Agent": "okhttp/3.12.1" }
+                });
 
-        // Set interval to update departures every 15 seconds
-        setInterval(fetchDepartures, 15000);
+                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+                
+                const data = await response.json();
+                const departuresContainer = document.getElementById('departures');
+                
+                departuresContainer.innerHTML = data.length > 0 
+                    ? data.map(d => `<div>${d.trn}: Due in ${d.dueIn} mins</div>`).join('')
+                    : 'No live departures available';
+
+                // Update timestamp
+                document.getElementById('last-updated').textContent = 
+                    `Last updated: ${new Date().toLocaleTimeString()}`;
+
+            } catch (error) {
+                document.getElementById("departures").innerHTML = 
+                    `Live departures unavailable: ${error.message}`;
+            }
+        }
+
+        // Initial load
+        displayScheduledTimes();
+        fetchDepartures();
+        
+        // Refresh every 15 seconds
+        setInterval(() => {
+            displayScheduledTimes();
+            fetchDepartures();
+        }, 15000);
     </script>
 </body>
 </html>
