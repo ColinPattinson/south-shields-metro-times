@@ -3,21 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>South Shields Metro Times</title>
+    <title>South Shields Metro Departures</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        header {
-            background-color: #007BFF;
-            color: white;
-            padding: 10px 20px;
             text-align: center;
+            margin: 20px;
         }
-
+        h1 {
+            color: #333;
+        }
         #bookmark-button {
             background-color: #FFD700; /* Gold color for visibility */
             color: black;
@@ -26,56 +21,25 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin-top: 10px;
+            margin-bottom: 20px; /* Space below the button */
         }
-
         #bookmark-button:hover {
             background-color: #FFC107; /* Slightly darker gold */
         }
-
-        .content {
-            padding: 20px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .departures {
             margin-top: 20px;
         }
-
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-
-        th {
-            background-color: #f4f4f4;
+        .departure {
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>South Shields Metro Times</h1>
-        <!-- Bookmark Button -->
-        <button id="bookmark-button">Bookmark This Page</button>
-    </header>
+    <!-- Bookmark Button -->
+    <button id="bookmark-button">Bookmark This Page</button>
 
-    <div class="content">
-        <h2>Departure Times</h2>
-        <table id="departure-table">
-            <thead>
-                <tr>
-                    <th>Train</th>
-                    <th>Destination</th>
-                    <th>Departure Time</th>
-                </tr>
-            </thead>
-            <tbody id="departure-body">
-                <!-- Departure times will be dynamically inserted here -->
-            </tbody>
-        </table>
-    </div>
+    <h1>South Shields Metro Departures</h1>
+    <div id="departures" class="departures">Loading...</div>
 
     <script>
         // JavaScript for Bookmark Button
@@ -92,33 +56,7 @@
             }
         });
 
-        // JavaScript to Populate Departure Times
-        const departureData = [
-            { train: "Metro A", destination: "Newcastle", time: "14:30" },
-            { train: "Metro B", destination: "Sunderland", time: "14:45" },
-            { train: "Metro C", destination: "Airport", time: "15:00" },
-        ];
-
-        const departureBody = document.getElementById("departure-body");
-
-        departureData.forEach((departure) => {
-            const row = document.createElement("tr");
-            
-            const trainCell = document.createElement("td");
-            trainCell.textContent = departure.train;
-
-            const destinationCell = document.createElement("td");
-            destinationCell.textContent = departure.destination;
-
-            const timeCell = document.createElement("td");
-            timeCell.textContent = departure.time;
-
-            row.appendChild(trainCell);
-            row.appendChild(destinationCell);
-            row.appendChild(timeCell);
-
-            departureBody.appendChild(row);
-        });
-    </script>
-</body>
-</html>
+        // JavaScript for Fetching Metro Departures
+        async function fetchDepartures() {
+            const stationCode = "SSS"; // South Shields station code
+            const platformNumber = 2; // Adjust platform number as needed
