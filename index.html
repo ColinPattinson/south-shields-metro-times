@@ -59,16 +59,50 @@
                 17: [8,20,32,44,56],
                 18: [11,26,35,41,56],
                 19: [11,26,41,56],
-                20: [11,26,41], 
-                // Add more hours as needed
+                20: [11,26,41,56],
+                21: [11,26,41,56],
+                22: [11,26,41,56],
+                23: [11,26,41,56]
             },
             saturday: {
-                // Saturday schedule
-                // Add hours and minutes here
+                6: [56],
+                7: [26,56],
+                8: [26,56],
+                9: [26,56],
+                10: [11,26,41,56],
+                11: [11,26,41,56],
+                12: [11,26,41,56],
+                13: [11,26,41,56],
+                14: [11,26,41,56],
+                15: [11,26,41,56],
+                16: [11,26,41,56],
+                17: [11,26,41,56],
+                18: [11,26,41,56],
+                19: [11,26,41,56],
+                20: [11,26,41,56],
+                21: [11,26,41,56],
+                22: [11,26,41,56],
+                23: [11,26,41,56]
             },
             sunday: {
-                // Sunday schedule
-                // Add hours and minutes here
+                6: [56],
+                7: [26,56],
+                8: [26,56],
+                9: [26,56],
+                10: [11,26,41,56],
+                11: [11,26,41,56],
+                12: [11,26,41,56],
+                13: [11,26,41,56],
+                14: [11,26,41,56],
+                15: [11,26,41,56],
+                16: [11,26,41,56],
+                17: [11,26,41,56],
+                18: [11,26,41,56],
+                19: [11,26,41,56],
+                20: [11,26,41,56],
+                21: [11,26,41,56],
+                22: [11,26,41,56],
+                23: [11,26,41,56]
             }
         };
 
@@ -123,7 +157,7 @@
             
             scheduledDiv.innerHTML = nextTimes
                 .map(time => 
-                    `${time.hour.toString().padStart(2,'0')}:${time.minute.toString().padStart(2,'0')}`
+                    `${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}`
                 ).join('<br>');
         }
 
@@ -136,7 +170,6 @@
                 if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
                 
                 const data = await response.json();
-                
                 const departuresContainer = document.getElementById('departures');
                 
                 departuresContainer.innerHTML = data.length > 0 
