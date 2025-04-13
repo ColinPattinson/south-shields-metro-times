@@ -41,79 +41,124 @@
     <div id="last-updated">Last updated: Never</div>
 
     <script>
-        // Nexus timetable data for Platform 2
+        // Complete Nexus timetable data for Platform 2
         const schedules = {
             weekday: {
-                5: [44, 56],
-                6: [8, 20, 32, 44, 56],
-                7: [8, 20, 32, 44, 56],
-                8: [8, 20, 32, 44, 56],
-                9: [8, 20, 32, 44, 56],
-                // Add more hours as needed
-                // ...
-                23: [11, 26, 41, 56]
+                5: [44,56],
+                6: [8,20,32,44,56],
+                7: [8,20,32,44,56],
+                8: [8,20,32,44,56],
+                9: [8,20,32,44,56],
+                10: [8,20,32,44,56],
+                11: [8,20,32,44,56],
+                12: [8,20,32,44,56],
+                13: [8,20,32,44,56],
+                14: [8,20,32,44,56],
+                15: [8,20,30,44,56],
+                16: [8,20,32,44,56],
+                17: [8,20,32,44,56],
+                18: [11,26,35,41,56],
+                19: [11,26,41,56],
+                20: [11,26,41,56],
+                21: [11,26,41,56],
+                22: [11,26,41,56],
+                23: [11,26,41,56]
             },
             saturday: {
-                // Saturday schedule
-                // Add hours and minutes here
-                // ...
-                23: [11, 26, 41]
+                6: [56],
+                7: [26,56],
+                8: [26,56],
+                9: [26,56],
+                10: [11,26,41,56],
+                11: [11,26,41,56],
+                12: [11,26,41,56],
+                13: [11,26,41,56],
+                14: [11,26,41,56],
+                15: [11,26,41,56],
+                16: [11,26,41,56],
+                17: [11,26,41,56],
+                18: [11,26,41,56],
+                19: [11,26,41,56],
+                20: [11,26,41,56],
+                21: [11,26,41,56],
+                22: [11,26,41,56],
+                23: [11,26,41,56]
             },
             sunday: {
-                // Sunday schedule
-                // Add hours and minutes here
-                // ...
-                23: [11, 26, 41]
+                6: [56],
+                7: [26,56],
+                8: [26,56],
+                9: [26,56],
+                10: [11,26,41,56],
+                11: [11,26,41,56],
+                12: [11,26,41,56],
+                13: [11,26,41,56],
+                14: [11,26,41,56],
+                15: [11,26,41,56],
+                16: [11,26,41,56],
+                17: [11,26,41,56],
+                18: [11,26,41,56],
+                19: [11,26,41,56],
+                20: [11,26,41,56],
+                21: [11,26,41,56],
+                22: [11,26,41,56],
+                23: [11,26,41,56]
             }
         };
 
         function getScheduleForDay() {
             const today = new Date();
-            const dayOfWeek = today.getDay(); // Sunday = 0
-            if (dayOfWeek === 0) return schedules.sunday; // Sunday
-            if (dayOfWeek === 6) return schedules.saturday; // Saturday
-            return schedules.weekday; // Weekday
+            const dayOfWeek = today.getDay();
+            if (dayOfWeek === 0) return schedules.sunday;
+            if (dayOfWeek === 6) return schedules.saturday;
+            return schedules.weekday;
         }
 
         function getNextScheduledTimes() {
             const now = new Date();
             const currentHour = now.getHours();
             const currentMinute = now.getMinutes();
-            
             const schedule = getScheduleForDay();
             
             let upcomingTimes = [];
             
-            // Loop through hours starting from the current hour
-            for (let hour = currentHour; hour <= 23; hour++) {
-                const minutes = schedule[hour] || [];
-                
-                for (let minute of minutes) {
-                    if (hour === currentHour && minute <= currentMinute) continue; // Skip past times
-                    upcomingTimes.push({ hour, minute });
-                    
-                    if (upcomingTimes.length === 4) break; // Stop after finding the next four times
-                }
-                
-                if (upcomingTimes.length === 4) break; // Stop after finding the next four times
+            // Check current hour first
+            if (schedule[currentHour]) {
+                const validMinutes = schedule[currentHour].filter(m => m > currentMinute);
+                upcomingTimes.push(...validMinutes.map(m => ({
+                    hour: currentHour,
+                    minute: m
+                })));
             }
-
-            return upcomingTimes;
+            
+            // Check subsequent hours if needed
+            let hour = currentHour + 1;
+            while (upcomingTimes.length < 4 && hour <= 23) {
+                if (schedule[hour]) {
+                    upcomingTimes.push(...schedule[hour].map(m => ({
+                        hour: hour,
+                        minute: m
+                    })));
+                }
+                hour++;
+            }
+            
+            return upcomingTimes.slice(0, 4);
         }
 
         function displayScheduledTimes() {
             const scheduledDiv = document.getElementById('scheduled-times');
-            
             const nextTimes = getNextScheduledTimes();
             
             if (nextTimes.length === 0) {
-                scheduledDiv.innerHTML = 'No more scheduled departures today.';
+                scheduledDiv.innerHTML = 'No more scheduled departures today';
                 return;
             }
-
-            scheduledDiv.innerHTML = nextTimes.map(time => 
-                `${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}`
-            ).join('<br>');
+            
+            scheduledDiv.innerHTML = nextTimes
+                .map(time => 
+                    `${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}`
+                ).join('<br>');
         }
 
         async function fetchDepartures() {
@@ -125,7 +170,6 @@
                 if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
                 
                 const data = await response.json();
-                
                 const departuresContainer = document.getElementById('departures');
                 
                 departuresContainer.innerHTML = data.length > 0 
@@ -145,7 +189,7 @@
         displayScheduledTimes();
         fetchDepartures();
 
-        // Refresh every minute
+        // Update every 15 seconds
         setInterval(() => {
             displayScheduledTimes();
             fetchDepartures();
