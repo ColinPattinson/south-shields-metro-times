@@ -6,75 +6,92 @@
     <title>South Shields Metro Times</title>
     <style>
         body {
-            font-family: Open Sans, sans-serif;
+            font-family: Arial, sans-serif;
             margin: 20px;
         }
-        #departures {
-            margin-bottom: 20px;
+        .container {
+            display: flex;
+            gap: 40px;
+        }
+        #departures, #scheduled {
+            flex: 1;
         }
         #last-updated {
-            font-size: 14px;
+            margin-top: 20px;
             color: gray;
         }
     </style>
 </head>
 <body>
     <h1>South Shields Metro Departures</h1>
-    <div id="departures">Loading...</div>
+    <div class="container">
+        <div id="departures">Loading live departures...</div>
+        <div id="scheduled">Loading scheduled times...</div>
+    </div>
     <div id="last-updated">Last updated: Never</div>
 
     <script>
-        const stationCode = "SSS"; // South Shields station code
-        const platformNumber = 2; // Replace with the desired platform number
-        const apiUrl = `https://metro-rti.nexus.org.uk/api/times/${stationCode}/${platformNumber}`;
+        // Timetables for different days
+        const timetables = {
+            weekday: {
+                5: [44, 56],
+                6: [8, 20, 32, 44, 56],
+                7: [8, 20, 32, 44, 56],
+                // Add more hours as needed
+            },
+            saturday: {
+                6: [56],
+                7: [26, 56],
+                // Add more hours as needed
+            },
+            sunday: {
+                6: [56],
+                7: [26, 56],
+                // Add more hours as needed
+            },
+        };
 
-        // Function to fetch departures from the API
+        // Function to get today's timetable
+        function getTodayTimetable() {
+            const today = new Date().getDay(); // Get current day (0 = Sunday, ..., 6 = Saturday)
+            if (today === 0) return timetables.sunday; // Sunday
+            if (today === 6) return timetables.saturday; // Saturday
+            return timetables.weekday; // Monday to Friday
+        }
+
+        // Function to display scheduled times
+        function updateScheduledTimes() {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const timetable = getTodayTimetable();
+            const scheduledDiv = document.getElementById('scheduled');
+
+            // Get times for current hour +1 (next hour)
+            const targetHour = currentHour + 1;
+            const minutes = timetable[targetHour] || [];
+
+            // Format times as HH:MM
+            const formatted = minutes.map(m => 
+                `${targetHour.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+            );
+
+            scheduledDiv.innerHTML = formatted.length > 0 
+                ? formatted.join('<br>') 
+                : 'No scheduled departures';
+        }
+
+        // Function to fetch live departures
         async function fetchDepartures() {
             try {
-                const response = await fetch(apiUrl, {
-                    headers: {
-                        "User-Agent": "okhttp/3.12.1"
-                    }
+                const response = await fetch('https://metro-rti.nexus.org.uk/api/times/SSS/2', {
+                    headers: { "User-Agent": "okhttp/3.12.1" }
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Error fetching data: ${response.status}`);
-                }
-
+                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+                
                 const data = await response.json();
                 displayDepartures(data);
-            } catch (error) {
-                document.getElementById("departures").innerText = `Failed to load data: ${error.message}`;
-            }
-        }
-
-        // Function to display fetched departures on the page
-        function displayDepartures(data) {
-            const departuresContainer = document.getElementById("departures");
-            departuresContainer.innerHTML = ""; // Clear previous content
-
-            if (data.length === 0) {
-                departuresContainer.innerText = "No upcoming departures.";
-                return;
-            }
-
-            data.forEach(departure => {
-                const departureElement = document.createElement("div");
-                departureElement.className = "departure";
-                departureElement.innerText = `Train ${departure.trn}: Due in ${departure.dueIn} minutes`;
-                departuresContainer.appendChild(departureElement);
-            });
-
-            // Update 'Last updated' timestamp
-            const now = new Date();
-            document.getElementById("last-updated").innerText = `Last updated: ${now.toLocaleTimeString()}`;
-        }
-
-        // Initial fetch of departures
-        fetchDepartures();
-
-        // Set interval to update departures every 15 seconds
-        setInterval(fetchDepartures, 15000);
-    </script>
-</body>
-</html>
+                updateScheduledTimes();
+                
+                // Update timestamp
+                docu
