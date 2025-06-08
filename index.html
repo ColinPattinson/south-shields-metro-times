@@ -212,7 +212,7 @@
                 const departuresContainer = document.getElementById('departures');
                 
                 departuresContainer.innerHTML = data.length > 0 
-                    ? data.map(d => `<div>Train ${d.trn}: Due in ${d.dueIn} mins</div>`).join('')
+                    ? data.map(d => `<div>Train ${d.trn}: ${d.dueIn == 0 ? "Due" : (d.dueIn < 0 ? "Arrived" : `Due in ${d.dueIn} mins`)}</div>`).join('')
                     : 'No live departures available';
 
                 document.getElementById('last-updated').textContent =
