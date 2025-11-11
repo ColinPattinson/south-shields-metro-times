@@ -33,6 +33,103 @@
             color: #7f8c8d;
             font-size: 0.9em;
         }
+        
+        /* Metro Updates Section */
+        .metro-updates {
+            background: #fff;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 24px;
+            margin-top: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .metro-updates h2 {
+            margin: 0 0 16px 0;
+            color: #2c3e50;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-good { background-color: #27ae60; }
+        .status-warning { background-color: #f39c12; }
+        .status-error { background-color: #e74c3c; }
+        .status-loading { background-color: #95a5a6; }
+        
+        .loading {
+            color: #7f8c8d;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
+        .update-content {
+            color: #2c3e50;
+            line-height: 1.6;
+            font-size: 1em;
+        }
+        
+        .error {
+            color: #e74c3c;
+            padding: 16px;
+            background-color: #fadbd8;
+            border-radius: 6px;
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .updates-timestamp {
+            color: #7f8c8d;
+            font-size: 0.85em;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #ecf0f1;
+        }
+        
+        .refresh-button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 12px;
+        }
+        
+        .refresh-button:hover {
+            background: #2980b9;
+        }
+        
+        .refresh-button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .powered-by {
+            font-size: 0.8em;
+            color: #95a5a6;
+            margin-top: 12px;
+            text-align: right;
+        }
     </style>
 </head>
 <body>
@@ -51,6 +148,18 @@
         </div>
     </div>
     <div id="last-updated">Last updated: Never</div>
+
+    <!-- NEW: Claude-Powered Service Updates -->
+    <div class="metro-updates">
+        <h2>
+            <span class="status-indicator status-loading" id="statusIndicator"></span>
+            Service Status & Analysis
+        </h2>
+        <div id="updateContent" class="loading">Analyzing South Shields service</div>
+        <button id="refreshButton" class="refresh-button" style="display:none;">Refresh Analysis</button>
+        <div class="updates-timestamp" id="updatesTimestamp" style="display:none;"></div>
+        <div class="powered-by">AI-powered analysis by Claude</div>
+    </div>
 
     <script>
         // Complete Nexus timetable data for Platform 2
@@ -173,7 +282,6 @@
                 ).join('<br>');
         }
 
-        // NEW: Separate function for prediction using CHI endpoint
         async function fetchPrediction() {
             try {
                 const response = await fetch('https://metro-rti.nexus.org.uk/api/times/CHI/2', {
@@ -199,7 +307,6 @@
             }
         }
 
-        // Original fetchDepartures remains unchanged
         async function fetchDepartures() {
             try {
                 const response = await fetch('https://metro-rti.nexus.org.uk/api/times/SSS/2', {
@@ -224,17 +331,135 @@
             }
         }
 
+        // NEW: Claude AI Service Analysis
+        let isAnalyzing = false;
+
+        async function analyzeServiceWithClaude() {
+            if (isAnalyzing) return;
+            
+            isAnalyzing = true;
+            const contentDiv = document.getElementById('updateContent');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const refreshButton = document.getElementById('refreshButton');
+            const timestampDiv = document.getElementById('updatesTimestamp');
+            
+            contentDiv.className = 'loading';
+            contentDiv.textContent = 'Analyzing South Shields service';
+            statusIndicator.className = 'status-indicator status-loading';
+            refreshButton.disabled = true;
+            timestampDiv.style.display = 'none';
+
+            try {
+                // Fetch live data for South Shields
+                const response = await fetch('https://metro-rti.nexus.org.uk/api/times/SSS/2', {
+                    headers: { "User-Agent": "okhttp/3.12.1" }
+                });
+
+                if (!response.ok) throw new Error('Failed to fetch live data');
+                
+                const liveData = await response.json();
+                
+                // Get current time and scheduled times
+                const now = new Date();
+                const currentHour = now.getHours();
+                const currentMinute = now.getMinutes();
+                const schedule = getScheduleForDay();
+                const dayType = now.getDay() === 0 ? 'Sunday' : (now.getDay() === 6 ? 'Saturday' : 'Weekday');
+                
+                // Find what should be running now
+                const nextScheduled = getNextScheduledTimes();
+                
+                // Use Claude AI to analyze the data
+                const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 1000,
+                        messages: [{
+                            role: 'user',
+                            content: `You are analyzing metro service for South Shields station. Provide a brief, friendly update.
+
+Current time: ${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}
+Day type: ${dayType}
+
+LIVE DEPARTURE DATA from South Shields (Platform 2):
+${JSON.stringify(liveData, null, 2)}
+
+SCHEDULED TIMES for next 4 departures:
+${nextScheduled.map(t => `${t.hour.toString().padStart(2, '0')}:${t.minute.toString().padStart(2, '0')}`).join(', ')}
+
+INSTRUCTIONS:
+1. Check if trains are running on time by comparing live data with scheduled times
+2. If there are delays, calculate how many minutes late trains are
+3. If there are no live departures when there should be, note this as a potential issue
+4. Keep response to 2-3 sentences maximum
+5. Be specific about South Shields station
+6. If everything is normal, say so briefly
+
+Focus on: Are services running to schedule? If not, by how much are they delayed?`
+                        }]
+                    })
+                });
+
+                if (!claudeResponse.ok) {
+                    throw new Error('Failed to get AI analysis');
+                }
+
+                const claudeData = await claudeResponse.json();
+                const updateText = claudeData.content[0].text;
+
+                // Determine status based on the response
+                let statusClass = 'status-good';
+                const lowerText = updateText.toLowerCase();
+                if (lowerText.includes('delay') || lowerText.includes('late') || lowerText.includes('behind schedule')) {
+                    statusClass = 'status-warning';
+                }
+                if (lowerText.includes('no trains') || lowerText.includes('suspended') || lowerText.includes('not running') || lowerText.includes('cancelled')) {
+                    statusClass = 'status-error';
+                }
+
+                // Update UI
+                contentDiv.className = 'update-content';
+                contentDiv.textContent = updateText;
+                statusIndicator.className = `status-indicator ${statusClass}`;
+                
+                // Show timestamp
+                timestampDiv.textContent = `Analysis updated: ${now.toLocaleTimeString('en-GB')}`;
+                timestampDiv.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error analyzing service:', error);
+                contentDiv.className = 'error';
+                contentDiv.textContent = '⚠️ Unable to analyze service at the moment. Live departure times are still available above.';
+                statusIndicator.className = 'status-indicator';
+            } finally {
+                isAnalyzing = false;
+                refreshButton.disabled = false;
+                refreshButton.style.display = 'block';
+            }
+        }
+
         // Initial load
         displayScheduledTimes();
         fetchDepartures();
-        fetchPrediction(); // NEW: Add prediction call
+        fetchPrediction();
+        analyzeServiceWithClaude(); // NEW: Initial AI analysis
 
-        // Update every 15 seconds
+        // Update every 15 seconds for departures
         setInterval(() => {
             displayScheduledTimes();
             fetchDepartures();
-            fetchPrediction(); // NEW: Add prediction refresh
+            fetchPrediction();
         }, 15000);
+
+        // Update AI analysis every 3 minutes (less frequent as it's more resource intensive)
+        setInterval(analyzeServiceWithClaude, 3 * 60 * 1000);
+
+        // Refresh button for AI analysis
+        document.getElementById('refreshButton').addEventListener('click', analyzeServiceWithClaude);
     </script>
 </body>
 </html>
