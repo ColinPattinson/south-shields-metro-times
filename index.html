@@ -34,8 +34,8 @@
             font-size: 0.9em;
         }
         
-        /* Metro Updates Section */
-        .metro-updates {
+        /* Service Analysis Section */
+        .service-analysis {
             background: #fff;
             border: 2px solid #3498db;
             border-radius: 8px;
@@ -44,7 +44,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
-        .metro-updates h2 {
+        .service-analysis h2 {
             margin: 0 0 16px 0;
             color: #2c3e50;
             font-size: 1.5em;
@@ -63,72 +63,28 @@
         .status-good { background-color: #27ae60; }
         .status-warning { background-color: #f39c12; }
         .status-error { background-color: #e74c3c; }
-        .status-loading { background-color: #95a5a6; }
+        .status-info { background-color: #3498db; }
         
-        .loading {
-            color: #7f8c8d;
-            padding: 20px;
-            text-align: center;
-        }
-        
-        .loading::after {
-            content: '...';
-            animation: dots 1.5s steps(4, end) infinite;
-        }
-        
-        @keyframes dots {
-            0%, 20% { content: '.'; }
-            40% { content: '..'; }
-            60%, 100% { content: '...'; }
-        }
-        
-        .update-content {
+        .analysis-content {
             color: #2c3e50;
             line-height: 1.6;
             font-size: 1em;
         }
         
-        .error {
-            color: #e74c3c;
-            padding: 16px;
-            background-color: #fadbd8;
+        .delay-details {
+            background: #ecf0f1;
+            padding: 12px;
             border-radius: 6px;
-            border-left: 4px solid #e74c3c;
+            margin-top: 12px;
+            font-size: 0.9em;
         }
         
-        .updates-timestamp {
+        .analysis-timestamp {
             color: #7f8c8d;
             font-size: 0.85em;
             margin-top: 12px;
             padding-top: 12px;
             border-top: 1px solid #ecf0f1;
-        }
-        
-        .refresh-button {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9em;
-            margin-top: 12px;
-        }
-        
-        .refresh-button:hover {
-            background: #2980b9;
-        }
-        
-        .refresh-button:disabled {
-            background: #bdc3c7;
-            cursor: not-allowed;
-        }
-        
-        .powered-by {
-            font-size: 0.8em;
-            color: #95a5a6;
-            margin-top: 12px;
-            text-align: right;
         }
     </style>
 </head>
@@ -149,16 +105,14 @@
     </div>
     <div id="last-updated">Last updated: Never</div>
 
-    <!-- NEW: Claude-Powered Service Updates -->
-    <div class="metro-updates">
+    <!-- Service Analysis Section -->
+    <div class="service-analysis">
         <h2>
-            <span class="status-indicator status-loading" id="statusIndicator"></span>
-            Service Status & Analysis
+            <span class="status-indicator status-info" id="statusIndicator"></span>
+            Service Status Analysis
         </h2>
-        <div id="updateContent" class="loading">Analyzing South Shields service</div>
-        <button id="refreshButton" class="refresh-button" style="display:none;">Refresh Analysis</button>
-        <div class="updates-timestamp" id="updatesTimestamp" style="display:none;"></div>
-        <div class="powered-by">AI-powered analysis by Claude</div>
+        <div id="analysisContent" class="analysis-content">Analyzing service...</div>
+        <div class="analysis-timestamp" id="analysisTimestamp"></div>
     </div>
 
     <script>
@@ -325,141 +279,86 @@
                 document.getElementById('last-updated').textContent =
                     `Last updated: ${new Date().toLocaleTimeString()}`;
 
+                // Also update analysis when we fetch departures
+                analyzeService(data);
+
             } catch (error) {
                 document.getElementById("departures").innerHTML =
                     `Live departures unavailable: ${error.message}`;
             }
         }
 
-        // NEW: Claude AI Service Analysis
-        let isAnalyzing = false;
-
-        async function analyzeServiceWithClaude() {
-            if (isAnalyzing) return;
+        function analyzeService(liveData) {
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            const schedule = getScheduleForDay();
+            const dayType = now.getDay() === 0 ? 'Sunday' : (now.getDay() === 6 ? 'Saturday' : 'Weekday');
             
-            isAnalyzing = true;
-            const contentDiv = document.getElementById('updateContent');
+            const analysisContent = document.getElementById('analysisContent');
             const statusIndicator = document.getElementById('statusIndicator');
-            const refreshButton = document.getElementById('refreshButton');
-            const timestampDiv = document.getElementById('updatesTimestamp');
+            const timestampDiv = document.getElementById('analysisTimestamp');
             
-            contentDiv.className = 'loading';
-            contentDiv.textContent = 'Analyzing South Shields service';
-            statusIndicator.className = 'status-indicator status-loading';
-            refreshButton.disabled = true;
-            timestampDiv.style.display = 'none';
-
-            try {
-                // Fetch live data for South Shields
-                const response = await fetch('https://metro-rti.nexus.org.uk/api/times/SSS/2', {
-                    headers: { "User-Agent": "okhttp/3.12.1" }
-                });
-
-                if (!response.ok) throw new Error('Failed to fetch live data');
-                
-                const liveData = await response.json();
-                
-                // Get current time and scheduled times
-                const now = new Date();
-                const currentHour = now.getHours();
-                const currentMinute = now.getMinutes();
-                const schedule = getScheduleForDay();
-                const dayType = now.getDay() === 0 ? 'Sunday' : (now.getDay() === 6 ? 'Saturday' : 'Weekday');
-                
-                // Find what should be running now
-                const nextScheduled = getNextScheduledTimes();
-                
-                // Use Claude AI to analyze the data
-                const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        model: 'claude-sonnet-4-20250514',
-                        max_tokens: 1000,
-                        messages: [{
-                            role: 'user',
-                            content: `You are analyzing metro service for South Shields station. Provide a brief, friendly update.
-
-Current time: ${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}
-Day type: ${dayType}
-
-LIVE DEPARTURE DATA from South Shields (Platform 2):
-${JSON.stringify(liveData, null, 2)}
-
-SCHEDULED TIMES for next 4 departures:
-${nextScheduled.map(t => `${t.hour.toString().padStart(2, '0')}:${t.minute.toString().padStart(2, '0')}`).join(', ')}
-
-INSTRUCTIONS:
-1. Check if trains are running on time by comparing live data with scheduled times
-2. If there are delays, calculate how many minutes late trains are
-3. If there are no live departures when there should be, note this as a potential issue
-4. Keep response to 2-3 sentences maximum
-5. Be specific about South Shields station
-6. If everything is normal, say so briefly
-
-Focus on: Are services running to schedule? If not, by how much are they delayed?`
-                        }]
-                    })
-                });
-
-                if (!claudeResponse.ok) {
-                    throw new Error('Failed to get AI analysis');
-                }
-
-                const claudeData = await claudeResponse.json();
-                const updateText = claudeData.content[0].text;
-
-                // Determine status based on the response
-                let statusClass = 'status-good';
-                const lowerText = updateText.toLowerCase();
-                if (lowerText.includes('delay') || lowerText.includes('late') || lowerText.includes('behind schedule')) {
-                    statusClass = 'status-warning';
-                }
-                if (lowerText.includes('no trains') || lowerText.includes('suspended') || lowerText.includes('not running') || lowerText.includes('cancelled')) {
-                    statusClass = 'status-error';
-                }
-
-                // Update UI
-                contentDiv.className = 'update-content';
-                contentDiv.textContent = updateText;
-                statusIndicator.className = `status-indicator ${statusClass}`;
-                
-                // Show timestamp
-                timestampDiv.textContent = `Analysis updated: ${now.toLocaleTimeString('en-GB')}`;
-                timestampDiv.style.display = 'block';
-                
-            } catch (error) {
-                console.error('Error analyzing service:', error);
-                contentDiv.className = 'error';
-                contentDiv.textContent = '⚠️ Unable to analyze service at the moment. Live departure times are still available above.';
-                statusIndicator.className = 'status-indicator';
-            } finally {
-                isAnalyzing = false;
-                refreshButton.disabled = false;
-                refreshButton.style.display = 'block';
+            // Find next scheduled departure
+            const nextScheduled = getNextScheduledTimes();
+            
+            if (nextScheduled.length === 0) {
+                analysisContent.innerHTML = `Service has ended for the day (${dayType} schedule).`;
+                statusIndicator.className = 'status-indicator status-info';
+                timestampDiv.textContent = `Updated: ${now.toLocaleTimeString('en-GB')}`;
+                return;
             }
+            
+            const nextScheduledTime = nextScheduled[0];
+            const scheduledMinutes = nextScheduledTime.hour * 60 + nextScheduledTime.minute;
+            const currentMinutes = currentHour * 60 + currentMinute;
+            const minsUntilScheduled = scheduledMinutes - currentMinutes;
+            
+            if (liveData.length === 0) {
+                if (minsUntilScheduled > 15) {
+                    analysisContent.innerHTML = `No trains currently showing. Next scheduled departure is at ${nextScheduledTime.hour.toString().padStart(2, '0')}:${nextScheduledTime.minute.toString().padStart(2, '0')} (in ${minsUntilScheduled} minutes).`;
+                    statusIndicator.className = 'status-indicator status-info';
+                } else {
+                    analysisContent.innerHTML = `⚠️ No live departures detected. A train is scheduled at ${nextScheduledTime.hour.toString().padStart(2, '0')}:${nextScheduledTime.minute.toString().padStart(2, '0')} (${minsUntilScheduled} mins away). There may be delays or service disruption.`;
+                    statusIndicator.className = 'status-indicator status-warning';
+                }
+            } else {
+                // Calculate expected arrival time for next train
+                const nextTrain = liveData[0];
+                const expectedArrivalMins = currentMinutes + nextTrain.dueIn;
+                const delay = expectedArrivalMins - scheduledMinutes;
+                
+                if (Math.abs(delay) <= 2) {
+                    analysisContent.innerHTML = `✓ Services running on time. Next train due in ${nextTrain.dueIn} minutes, on schedule for ${nextScheduledTime.hour.toString().padStart(2, '0')}:${nextScheduledTime.minute.toString().padStart(2, '0')}.`;
+                    statusIndicator.className = 'status-indicator status-good';
+                } else if (delay > 2) {
+                    analysisContent.innerHTML = `⚠️ Services running approximately ${delay} minutes behind schedule. Next train expected around ${Math.floor(expectedArrivalMins / 60).toString().padStart(2, '0')}:${(expectedArrivalMins % 60).toString().padStart(2, '0')} (scheduled: ${nextScheduledTime.hour.toString().padStart(2, '0')}:${nextScheduledTime.minute.toString().padStart(2, '0')}).`;
+                    statusIndicator.className = 'status-indicator status-warning';
+                } else if (delay < -2) {
+                    analysisContent.innerHTML = `Train arriving ${Math.abs(delay)} minutes ahead of schedule. Next departure due in ${nextTrain.dueIn} minutes.`;
+                    statusIndicator.className = 'status-indicator status-good';
+                }
+                
+                // Add info about multiple trains if available
+                if (liveData.length > 1) {
+                    analysisContent.innerHTML += ` ${liveData.length} trains currently showing in the system.`;
+                }
+            }
+            
+            timestampDiv.textContent = `Analysis updated: ${now.toLocaleTimeString('en-GB')}`;
         }
 
         // Initial load
         displayScheduledTimes();
         fetchDepartures();
         fetchPrediction();
-        analyzeServiceWithClaude(); // NEW: Initial AI analysis
 
-        // Update every 15 seconds for departures
+        // Update every 15 seconds
         setInterval(() => {
             displayScheduledTimes();
             fetchDepartures();
             fetchPrediction();
         }, 15000);
-
-        // Update AI analysis every 3 minutes (less frequent as it's more resource intensive)
-        setInterval(analyzeServiceWithClaude, 3 * 60 * 1000);
-
-        // Refresh button for AI analysis
-        document.getElementById('refreshButton').addEventListener('click', analyzeServiceWithClaude);
     </script>
 </body>
 </html>
