@@ -95,25 +95,16 @@
     </div>
     <div class="container">
         <div class="card">
-            <h2>Live Arrivals</h2>
-            <div id="departures">Loading...</div>
-        </div>
-        <div class="card">
             <h2>Next Scheduled Times</h2>
             <div id="scheduled-times">Loading...</div>
         </div>
+        <div class="card">
+            <h2>Service Status</h2>
+            <div id="analysisContent" class="analysis-content">Analyzing service...</div>
+            <div class="analysis-timestamp" id="analysisTimestamp"></div>
+        </div>
     </div>
     <div id="last-updated">Last updated: Never</div>
-
-    <!-- Service Analysis Section -->
-    <div class="service-analysis">
-        <h2>
-            <span class="status-indicator status-info" id="statusIndicator"></span>
-            Service Status Analysis
-        </h2>
-        <div id="analysisContent" class="analysis-content">Analyzing service...</div>
-        <div class="analysis-timestamp" id="analysisTimestamp"></div>
-    </div>
 
     <script>
         // Complete Nexus timetable data for Platform 2
@@ -146,16 +137,6 @@
                 9: [26,56],
                 10: [11,26,41,56],
                 11: [11,26,41,56],
-                12: [11,26,41,56],
-                13: [11,26,41,56],
-                14: [11,26,41,56],
-                15: [11,26,41,56],
-                16: [11,26,41,56],
-                17: [11,26,41,56],
-                18: [11,26,41,56],
-                19: [11,26,41,56],
-                20: [11,26,41,56],
-                21: [11,26,41,56],
                 22: [11,26,41,56],
                 23: [11,26,41,56]
             },
@@ -166,16 +147,6 @@
                 9: [26,56],
                 10: [11,26,41,56],
                 11: [11,26,41,56],
-                12: [11,26,41,56],
-                13: [11,26,41,56],
-                14: [11,26,41,56],
-                15: [11,26,41,56],
-                16: [11,26,41,56],
-                17: [11,26,41,56],
-                18: [11,26,41,56],
-                19: [11,26,41,56],
-                20: [11,26,41,56],
-                21: [11,26,41,56],
                 22: [11,26,41,56],
                 23: [11,26,41,56]
             }
@@ -236,129 +207,47 @@
                 ).join('<br>');
         }
 
-        async function fetchPrediction() {
-            try {
-                const response = await fetch('https://metro-rti.nexus.org.uk/api/times/CHI/2', {
-                    headers: { "User-Agent": "okhttp/3.12.1" }
-                });
-
-                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-                
-                const data = await response.json();
-                
-                if (data.length > 0) {
-                    const nextTrain = data[0];
-                    const now = new Date();
-                    const predictedTime = new Date(now.getTime() + (nextTrain.dueIn - 2) * 60000);
-                    document.getElementById('prediction-time').textContent = 
-                        `${predictedTime.getHours().toString().padStart(2, '0')}:${predictedTime.getMinutes().toString().padStart(2, '0')}`;
-                } else {
-                    document.getElementById('prediction-time').textContent = 'No departures';
-                }
-
-            } catch (error) {
-                document.getElementById('prediction-time').textContent = 'Unavailable';
+        function displayPredictedDeparture() {
+            const nextTimes = getNextScheduledTimes();
+            const predictionSpan = document.getElementById('prediction-time');
+            
+            if (nextTimes.length === 0) {
+                predictionSpan.textContent = 'No more departures today';
+            } else {
+                const next = nextTimes[0];
+                predictionSpan.textContent = 
+                    `${next.hour.toString().padStart(2, '0')}:${next.minute.toString().padStart(2, '0')}`;
             }
         }
 
-        async function fetchDepartures() {
-            try {
-                const response = await fetch('https://metro-rti.nexus.org.uk/api/times/SSS/2', {
-                    headers: { "User-Agent": "okhttp/3.12.1" }
-                });
-
-                if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-                
-                const data = await response.json();
-                const departuresContainer = document.getElementById('departures');
-                
-                departuresContainer.innerHTML = data.length > 0 
-                    ? data.map(d => `<div>Train ${d.trn}: ${d.dueIn == 0 ? "Due" : (d.dueIn < 0 ? "Arrived" : `Due in ${d.dueIn} mins`)}</div>`).join('')
-                    : 'No live departures available';
-
-                document.getElementById('last-updated').textContent =
-                    `Last updated: ${new Date().toLocaleTimeString()}`;
-
-                // Also update analysis when we fetch departures
-                analyzeService(data);
-
-            } catch (error) {
-                document.getElementById("departures").innerHTML =
-                    `Live departures unavailable: ${error.message}`;
-            }
-        }
-
-        function analyzeService(liveData) {
+        function analyzeService() {
             const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            const schedule = getScheduleForDay();
+            const nextScheduled = getNextScheduledTimes();
             const dayType = now.getDay() === 0 ? 'Sunday' : (now.getDay() === 6 ? 'Saturday' : 'Weekday');
             
             const analysisContent = document.getElementById('analysisContent');
             const statusIndicator = document.getElementById('statusIndicator');
             const timestampDiv = document.getElementById('analysisTimestamp');
-            
-            // Find next scheduled departure
-            const nextScheduled = getNextScheduledTimes();
-            
+
             if (nextScheduled.length === 0) {
                 analysisContent.innerHTML = `Service has ended for the day (${dayType} schedule).`;
                 statusIndicator.className = 'status-indicator status-info';
-                timestampDiv.textContent = `Updated: ${now.toLocaleTimeString('en-GB')}`;
-                return;
-            }
-            
-            const nextScheduledTime = nextScheduled[0];
-            const scheduledMinutes = nextScheduledTime.hour * 60 + nextScheduledTime.minute;
-            const currentMinutes = currentHour * 60 + currentMinute;
-            const minsUntilScheduled = scheduledMinutes - currentMinutes;
-            
-            if (liveData.length === 0) {
-                if (minsUntilScheduled > 15) {
-                    analysisContent.innerHTML = `No trains currently showing. Next scheduled departure is at ${nextScheduledTime.hour.toString().padStart(2, '0')}:${nextScheduledTime.minute.toString().padStart(2, '0')} (in ${minsUntilScheduled} minutes).`;
-                    statusIndicator.className = 'status-indicator status-info';
-                } else {
-                    analysisContent.innerHTML = `⚠️ No live departures detected. A train is scheduled at ${nextScheduledTime.hour.toString().padStart(2, '0')}:${nextScheduledTime.minute.toString().padStart(2, '0')} (${minsUntilScheduled} mins away). There may be delays or service disruption.`;
-                    statusIndicator.className = 'status-indicator status-warning';
-                }
             } else {
-                // Calculate expected arrival time for next train
-                const nextTrain = liveData[0];
-                const expectedArrivalMins = currentMinutes + nextTrain.dueIn;
-                const delay = expectedArrivalMins - scheduledMinutes;
-                
-                if (Math.abs(delay) <= 2) {
-                    analysisContent.innerHTML = `✓ Services running on time. Next train due in ${nextTrain.dueIn} minutes, on schedule for ${nextScheduledTime.hour.toString().padStart(2, '0')}:${nextScheduledTime.minute.toString().padStart(2, '0')}.`;
-                    statusIndicator.className = 'status-indicator status-good';
-                } else if (delay > 2) {
-                    analysisContent.innerHTML = `⚠️ Services running approximately ${delay} minutes behind schedule. Next train expected around ${Math.floor(expectedArrivalMins / 60).toString().padStart(2, '0')}:${(expectedArrivalMins % 60).toString().padStart(2, '0')} (scheduled: ${nextScheduledTime.hour.toString().padStart(2, '0')}:${nextScheduledTime.minute.toString().padStart(2, '0')}).`;
-                    statusIndicator.className = 'status-indicator status-warning';
-                } else if (delay < -2) {
-                    analysisContent.innerHTML = `Train arriving ${Math.abs(delay)} minutes ahead of schedule. Next departure due in ${nextTrain.dueIn} minutes.`;
-                    statusIndicator.className = 'status-indicator status-good';
-                }
-                
-                // Add info about multiple trains if available
-                if (liveData.length > 1) {
-                    analysisContent.innerHTML += ` ${liveData.length} trains currently showing in the system.`;
-                }
+                const next = nextScheduled[0];
+                const minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
+                analysisContent.innerHTML = `Next scheduled departure at ${next.hour.toString().padStart(2, '0')}:${next.minute.toString().padStart(2, '0')} (${minsUntil} minutes away).`;
+                statusIndicator.className = 'status-indicator status-info';
             }
-            
+
             timestampDiv.textContent = `Analysis updated: ${now.toLocaleTimeString('en-GB')}`;
         }
 
-        // Initial load
+        // Initial load (all static)
         displayScheduledTimes();
-        fetchDepartures();
-        fetchPrediction();
-
-        // Update every 15 seconds
-        setInterval(() => {
-            displayScheduledTimes();
-            fetchDepartures();
-            fetchPrediction();
-        }, 15000);
+        displayPredictedDeparture();
+        analyzeService();
+        document.getElementById('last-updated').textContent =
+            `Last updated: ${new Date().toLocaleTimeString('en-GB')}`;
     </script>
 </body>
 </html>
