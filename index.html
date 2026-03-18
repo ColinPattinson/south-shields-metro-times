@@ -5,169 +5,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>South Shields Metro Times</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; }
         #predicted-departure {
-            background: #3498db;
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            font-size: 2em;
-            text-align: center;
+            background: #3498db; color: white; padding: 20px; border-radius: 8px; 
+            margin: 20px 0; font-size: 2em; text-align: center;
         }
-        .container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+        .card { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+        .service-analysis { 
+            background: #fff; border: 2px solid #3498db; border-radius: 8px; 
+            padding: 24px; margin-top: 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
         }
-        .card {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
+        .service-analysis h2 { 
+            margin: 0 0 16px 0; color: #2c3e50; font-size: 1.5em; 
+            display: flex; align-items: center; gap: 10px; 
         }
-        
-        /* Service Analysis Section */
-        .service-analysis {
-            background: #fff;
-            border: 2px solid #3498db;
-            border-radius: 8px;
-            padding: 24px;
-            margin-top: 40px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .service-analysis h2 {
-            margin: 0 0 16px 0;
-            color: #2c3e50;
-            font-size: 1.5em;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .status-good { background-color: #27ae60; }
+        .status-warning { background-color: #f39c12; }
+        .status-error { background-color: #e74c3c; }
         .status-info { background-color: #3498db; }
-        
-        .analysis-content {
-            color: #2c3e50;
-            line-height: 1.6;
-            font-size: 1em;
-        }
-        
-        .analysis-timestamp {
-            color: #7f8c8d;
-            font-size: 0.85em;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #ecf0f1;
-        }
-
-        /* Static note */
-        .static-note {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 40px;
-            font-size: 0.95em;
-            color: #856404;
-        }
+        .analysis-content { color: #2c3e50; line-height: 1.6; font-size: 1em; }
+        .analysis-timestamp { color: #7f8c8d; font-size: 0.85em; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ecf0f1; }
+        .static-note { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 16px; margin-top: 40px; font-size: 0.95em; color: #856404; }
     </style>
 </head>
 <body>
     <h1>South Shields Metro Departures</h1>
-    <div id="predicted-departure">
-        Predicted next departure time: <span id="prediction-time">Calculating...</span>
-    </div>
+    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time">Loading...</span></div>
     <div class="container">
+        <div class="card">
+            <h2>Live Arrivals</h2>
+            <div id="departures">Loading...</div>
+        </div>
         <div class="card">
             <h2>Next Scheduled Times</h2>
             <div id="scheduled-times">Loading...</div>
         </div>
-        <div class="card">
-            <h2>Next scheduled Departure:</h2>
-            <div id="analysisContent" class="analysis-content">Analyzing service...</div>
-            <div class="analysis-timestamp" id="analysisTimestamp"></div>
-        </div>
     </div>
-
-    <!-- Static note -->
+    <div class="service-analysis">
+        <h2><span class="status-indicator status-info" id="statusIndicator"></span>Next scheduled Departure:</h2>
+        <div id="analysisContent" class="analysis-content">Analyzing service...</div>
+        <div class="analysis-timestamp" id="analysisTimestamp"></div>
+    </div>
     <div class="static-note">
-        <strong>Note:</strong> After recent API changes, this page is now static and must be refreshed for updated times.
+        <strong>Live data:</strong> Via Cloudflare Worker proxy. Falls back to static schedule if unavailable. Auto-refreshes every 15s.
     </div>
 
     <script>
-        // Complete Nexus timetable data for Platform 2
+        // YOUR CLOUDFLARE WORKER
+        const PROXY_BASE = 'https://metro-proxy.colinpattinson1986.workers.dev';
+        
+        // Your timetable data (unchanged)
         const schedules = {
             weekday: {
-                5: [44,56],
-                6: [8,20,32,44,56],
-                7: [8,20,32,44,56],
-                8: [8,20,32,44,56],
-                9: [8,20,32,44,56],
-                10: [8,20,32,44,56],
-                11: [8,20,32,44,56],
-                12: [8,20,32,44,56],
-                13: [8,20,32,44,56],
-                14: [8,20,32,44,56],
-                15: [8,20,30,44,56],
-                16: [8,20,32,44,56],
-                17: [8,20,32,44,56],
-                18: [11,26,35,41,56],
-                19: [11,26,41,56],
-                20: [11,26,41,56],
-                21: [11,26,41,56],
-                22: [11,26,41,56],
-                23: [11,26,41,56]
+                5: [44,56], 6: [8,20,32,44,56], 7: [8,20,32,44,56], 8: [8,20,32,44,56],
+                9: [8,20,32,44,56], 10: [8,20,32,44,56], 11: [8,20,32,44,56], 12: [8,20,32,44,56],
+                13: [8,20,32,44,56], 14: [8,20,32,44,56], 15: [8,20,30,44,56], 16: [8,20,32,44,56],
+                17: [8,20,32,44,56], 18: [11,26,35,41,56], 19: [11,26,41,56], 20: [11,26,41,56],
+                21: [11,26,41,56], 22: [11,26,41,56], 23: [11,26,41,56]
             },
             saturday: {
-                6: [56],
-                7: [26,56],
-                8: [26,56],
-                9: [26,56],
-                10: [11,26,41,56],
-                11: [11,26,41,56],
-                12: [11,26,41,56],
-                13: [11,26,41,56],
-                14: [11,26,41,56],
-                15: [11,26,41,56],
-                16: [11,26,41,56],
-                17: [11,26,41,56],
-                18: [11,26,41,56],
-                19: [11,26,41,56],
-                20: [11,26,41,56],
-                21: [11,26,41,56],
-                22: [11,26,41,56],
-                23: [11,26,41,56]
+                6: [56], 7: [26,56], 8: [26,56], 9: [26,56], 10: [11,26,41,56], 11: [11,26,41,56],
+                12: [11,26,41,56], 13: [11,26,41,56], 14: [11,26,41,56], 15: [11,26,41,56],
+                16: [11,26,41,56], 17: [11,26,41,56], 18: [11,26,41,56], 19: [11,26,41,56],
+                20: [11,26,41,56], 21: [11,26,41,56], 22: [11,26,41,56], 23: [11,26,41,56]
             },
             sunday: {
-                6: [56],
-                7: [26,56],
-                8: [26,56],
-                9: [26,56],
-                10: [11,26,41,56],
-                11: [11,26,41,56],
-                12: [11,26,41,56],
-                13: [11,26,41,56],
-                14: [11,26,41,56],
-                15: [11,26,41,56],
-                16: [11,26,41,56],
-                17: [11,26,41,56],
-                18: [11,26,41,56],
-                19: [11,26,41,56],
-                20: [11,26,41,56],
-                21: [11,26,41,56],
-                22: [11,26,41,56],
-                23: [11,26,41,56]
+                6: [56], 7: [26,56], 8: [26,56], 9: [26,56], 10: [11,26,41,56], 11: [11,26,41,56],
+                12: [11,26,41,56], 13: [11,26,41,56], 14: [11,26,41,56], 15: [11,26,41,56],
+                16: [11,26,41,56], 17: [11,26,41,56], 18: [11,26,41,56], 19: [11,26,41,56],
+                20: [11,26,41,56], 21: [11,26,41,56], 22: [11,26,41,56], 23: [11,26,41,56]
             }
         };
 
@@ -186,85 +94,116 @@
             const schedule = getScheduleForDay();
             
             let upcomingTimes = [];
-            
-            // Check current hour first
             if (schedule[currentHour]) {
                 const validMinutes = schedule[currentHour].filter(m => m > currentMinute);
-                upcomingTimes.push(...validMinutes.map(m => ({
-                    hour: currentHour,
-                    minute: m
-                })));
+                upcomingTimes.push(...validMinutes.map(m => ({hour: currentHour, minute: m})));
             }
-            
-            // Check subsequent hours if needed
             let hour = currentHour + 1;
             while (upcomingTimes.length < 4 && hour <= 23) {
                 if (schedule[hour]) {
-                    upcomingTimes.push(...schedule[hour].map(m => ({
-                        hour: hour,
-                        minute: m
-                    })));
+                    upcomingTimes.push(...schedule[hour].map(m => ({hour: hour, minute: m})));
                 }
                 hour++;
             }
-            
             return upcomingTimes.slice(0, 4);
         }
 
         function displayScheduledTimes() {
             const scheduledDiv = document.getElementById('scheduled-times');
             const nextTimes = getNextScheduledTimes();
-            
-            if (nextTimes.length === 0) {
-                scheduledDiv.innerHTML = 'No more scheduled departures today';
-                return;
-            }
-            
-            scheduledDiv.innerHTML = nextTimes
-                .map(time => 
-                    `${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}`
-                ).join('<br>');
+            scheduledDiv.innerHTML = nextTimes.length > 0 
+                ? nextTimes.map(t => `${t.hour.toString().padStart(2,'0')}:${t.minute.toString().padStart(2,'0')}`).join('<br>')
+                : 'No more scheduled departures today';
         }
 
-        function displayPredictedDeparture() {
-            const nextTimes = getNextScheduledTimes();
+        async function fetchLiveData(endpoint) {
+            try {
+                const response = await fetch(`${PROXY_BASE}${endpoint}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.warn(`Live API failed (${endpoint}): ${error.message}`);
+                return null;
+            }
+        }
+
+        async function fetchDepartures() {
+            const data = await fetchLiveData('/api/times/SSS/2');
+            const departuresContainer = document.getElementById('departures');
+            
+            if (data && data.length > 0) {
+                departuresContainer.innerHTML = data.map(d => 
+                    `<div>Train ${d.trn}: ${d.dueIn == 0 ? "Due" : (d.dueIn < 0 ? "Arrived" : `Due in ${d.dueIn} mins`)}</div>`
+                ).join('');
+            } else {
+                departuresContainer.innerHTML = 'Live data unavailable (using scheduled times)';
+            }
+            
+            analyzeService(data);
+        }
+
+        async function fetchPrediction() {
+            const data = await fetchLiveData('/api/times/CHI/2');
             const predictionSpan = document.getElementById('prediction-time');
             
-            if (nextTimes.length === 0) {
-                predictionSpan.textContent = 'No more departures today';
+            if (data && data.length > 0) {
+                const now = new Date();
+                const predictedTime = new Date(now.getTime() + (data[0].dueIn - 2) * 60000);
+                predictionSpan.textContent = `${predictedTime.getHours().toString().padStart(2,'0')}:${predictedTime.getMinutes().toString().padStart(2,'0')} (live)`;
             } else {
-                const next = nextTimes[0];
-                predictionSpan.textContent = 
-                    `${next.hour.toString().padStart(2, '0')}:${next.minute.toString().padStart(2, '0')}`;
+                const nextTimes = getNextScheduledTimes();
+                predictionSpan.textContent = nextTimes.length > 0 
+                    ? `${nextTimes[0].hour.toString().padStart(2,'0')}:${nextTimes[0].minute.toString().padStart(2,'0')} (scheduled)`
+                    : 'No departures';
             }
         }
 
-        function analyzeService() {
+        function analyzeService(liveData) {
             const now = new Date();
             const nextScheduled = getNextScheduledTimes();
-            const dayType = now.getDay() === 0 ? 'Sunday' : (now.getDay() === 6 ? 'Saturday' : 'Weekday');
-            
             const analysisContent = document.getElementById('analysisContent');
             const statusIndicator = document.getElementById('statusIndicator');
             const timestampDiv = document.getElementById('analysisTimestamp');
-
+            
             if (nextScheduled.length === 0) {
-                analysisContent.innerHTML = `Service has ended for the day (${dayType} schedule).`;
+                analysisContent.innerHTML = 'Service has ended for the day.';
                 statusIndicator.className = 'status-indicator status-info';
+            } else if (liveData && liveData.length > 0) {
+                const nextTrain = liveData[0];
+                const nextScheduledTime = nextScheduled[0];
+                const scheduledMinutes = nextScheduledTime.hour * 60 + nextScheduledTime.minute;
+                const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                const expectedArrivalMins = currentMinutes + nextTrain.dueIn;
+                const delay = expectedArrivalMins - scheduledMinutes;
+                
+                if (Math.abs(delay) <= 2) {
+                    analysisContent.innerHTML = `✓ Live services running on time. Next train due in ${nextTrain.dueIn} mins.`;
+                    statusIndicator.className = 'status-indicator status-good';
+                } else if (delay > 2) {
+                    analysisContent.innerHTML = `⚠️ Live services ${delay} mins late. Next train due in ${nextTrain.dueIn} mins.`;
+                    statusIndicator.className = 'status-indicator status-warning';
+                } else {
+                    analysisContent.innerHTML = `Train arriving ${Math.abs(delay)} mins early. Next due in ${nextTrain.dueIn} mins.`;
+                    statusIndicator.className = 'status-indicator status-good';
+                }
             } else {
                 const next = nextScheduled[0];
                 const minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
-                analysisContent.innerHTML = `Next scheduled departure at ${next.hour.toString().padStart(2, '0')}:${next.minute.toString().padStart(2, '0')} (${minsUntil} minutes away).`;
+                analysisContent.innerHTML = `Next scheduled departure at ${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${minsUntil} mins).`;
                 statusIndicator.className = 'status-indicator status-info';
             }
-
-            timestampDiv.textContent = `Analysis updated: ${now.toLocaleTimeString('en-GB')}`;
+            
+            timestampDiv.textContent = `Updated: ${now.toLocaleTimeString('en-GB')}`;
         }
 
-        // Initial load (all static)
-        displayScheduledTimes();
-        displayPredictedDeparture();
-        analyzeService();
+        // Load everything
+        async function updateAll() {
+            displayScheduledTimes();
+            await Promise.all([fetchDepartures(), fetchPrediction()]);
+        }
+        
+        updateAll();
+        setInterval(updateAll, 15000);
     </script>
 </body>
 </html>
