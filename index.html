@@ -35,21 +35,33 @@
             padding: 16px; margin-top: 20px; font-size: 0.95em; color: #856404; 
             text-align: center;
         }
+        #refresh-button {
+            background: none; border: none; cursor: pointer; font-size: 0.8em;
+            vertical-align: middle; margin-left: 10px; color: #3498db;
+            transition: transform 0.2s, color 0.2s; padding: 5px; border-radius: 50%;
+        }
+        #refresh-button:hover { color: #2980b9; background: rgba(52, 152, 219, 0.1); }
+        #refresh-button:focus { outline: 2px solid #3498db; outline-offset: 2px; }
+        .spinning { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <h1 style="text-align: center;">South Shields Metro Departures</h1>
+    <h1 style="text-align: center;">
+        South Shields Metro Departures
+        <button id="refresh-button" aria-label="Refresh departures" title="Refresh departures">↻</button>
+    </h1>
     
-    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time">Loading...</span></div>
+    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time" aria-live="polite">Loading...</span></div>
     
     <div class="card">
         <h2>Next Scheduled Times</h2>
-        <div id="scheduled-times">Loading...</div>
+        <div id="scheduled-times" aria-live="polite">Loading...</div>
     </div>
     
     <div class="service-analysis">
-        <h2><span class="status-indicator status-info" id="statusIndicator"></span>Next scheduled Departure:</h2>
-        <div id="analysisContent" class="analysis-content">Loading...</div>
+        <h2><span class="status-indicator status-info" id="statusIndicator" role="img" aria-label="Service status indicator"></span>Next scheduled Departure:</h2>
+        <div id="analysisContent" class="analysis-content" aria-live="polite">Loading...</div>
         <div class="analysis-timestamp" id="analysisTimestamp"></div>
     </div>
     
@@ -153,11 +165,18 @@
 
         // Load everything
         async function updateAll() {
-            displayScheduledTimes();
-            await fetchPrediction();
-            analyzeService();
+            const btn = document.getElementById('refresh-button');
+            if (btn) btn.classList.add('spinning');
+            try {
+                displayScheduledTimes();
+                await fetchPrediction();
+                analyzeService();
+            } finally {
+                if (btn) btn.classList.remove('spinning');
+            }
         }
         
+        document.getElementById('refresh-button').addEventListener('click', updateAll);
         updateAll();
         setInterval(updateAll, 15000);
     </script>
