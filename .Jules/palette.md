@@ -1,0 +1,3 @@
+## 2025-05-15 - [Accessibility & Polish in South Shields Metro Times]
+**Learning:** For a single-page app displaying real-time updates (like transport schedules), ARIA attributes like `aria-live="polite"` are crucial for ensuring users with screen readers are kept informed of status changes. Similarly, semantic HTML (like `<ul>` for lists of times) is a key accessibility win that provides context about the number of upcoming events.
+**Action:** Always check if dynamic content areas should have `aria-live` and ensure that repeated content is grouped in semantic elements (like lists) rather than just being separated by `<br>` tags.
