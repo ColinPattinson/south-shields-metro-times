@@ -1,0 +1,3 @@
+## 2025-05-22 - Improving Real-Time Accessibility for Static Transit Apps
+**Learning:** For single-page static transit apps with periodic polling (e.g., every 15s), using `aria-live="polite"` on dynamic time displays is crucial for ensuring screen reader users are notified of updates without interrupting their current task. Additionally, including the current minute in departure logic (e.g., `m >= currentMinute`) avoids the common "disappearing train" bug where a train at the platform is hidden from the UI.
+**Action:** Always check if filter logic is inclusive of the current time and ensure dynamic regions have appropriate ARIA live attributes.
