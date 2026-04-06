@@ -30,17 +30,25 @@
         .analysis-content { color: #2c3e50; line-height: 1.6; font-size: 1.2em; font-weight: 500; }
         .analysis-timestamp { color: #7f8c8d; font-size: 0.9em; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ecf0f1; }
         #scheduled-times { font-size: 1.4em; line-height: 1.8; }
+        #scheduled-times ul { list-style: none; padding: 0; margin: 0; }
         .static-note { 
             background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; 
             padding: 16px; margin-top: 20px; font-size: 0.95em; color: #856404; 
             text-align: center;
+        }
+        .sr-only {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0,0,0,0); border: 0;
         }
     </style>
 </head>
 <body>
     <h1 style="text-align: center;">South Shields Metro Departures</h1>
     
-    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time">Loading...</span></div>
+    <div id="predicted-departure">
+        Predicted next departure time: <span id="prediction-time" aria-live="polite">Loading...</span>
+        <span id="prediction-source" class="sr-only"></span>
+    </div>
     
     <div class="card">
         <h2>Next Scheduled Times</h2>
@@ -48,8 +56,8 @@
     </div>
     
     <div class="service-analysis">
-        <h2><span class="status-indicator status-info" id="statusIndicator"></span>Next scheduled Departure:</h2>
-        <div id="analysisContent" class="analysis-content">Loading...</div>
+        <h2><span class="status-indicator status-info" id="statusIndicator" role="img" aria-label="Status: Information"></span>Next scheduled Departure:</h2>
+        <div id="analysisContent" class="analysis-content" aria-live="polite">Loading...</div>
         <div class="analysis-timestamp" id="analysisTimestamp"></div>
     </div>
     
@@ -81,7 +89,7 @@
             const schedule = getScheduleForDay();
             let upcomingTimes = [];
             if (schedule[currentHour]) {
-                const validMinutes = schedule[currentHour].filter(m => m > currentMinute);
+                const validMinutes = schedule[currentHour].filter(m => m >= currentMinute);
                 upcomingTimes.push(...validMinutes.map(m => ({hour: currentHour, minute: m})));
             }
             let hour = currentHour + 1;
@@ -98,7 +106,7 @@
             const scheduledDiv = document.getElementById('scheduled-times');
             const nextTimes = getNextScheduledTimes();
             scheduledDiv.innerHTML = nextTimes.length > 0 
-                ? nextTimes.map(t => `${t.hour.toString().padStart(2,'0')}:${t.minute.toString().padStart(2,'0')}`).join('<br>')
+                ? `<ul>${nextTimes.map(t => `<li>${t.hour.toString().padStart(2,'0')}:${t.minute.toString().padStart(2,'0')}</li>`).join('')}</ul>`
                 : 'No more scheduled departures today';
         }
 
@@ -117,17 +125,20 @@
             const data = await fetchLiveData('/api/times/CHI/2');
             const predictionSpan = document.getElementById('prediction-time');
             
+            const sourceSpan = document.getElementById('prediction-source');
             if (data && data.length > 0) {
                 const now = new Date();
                 const predictedTime = new Date(now.getTime() + (data[0].dueIn - 2) * 60000);
                 predictionSpan.textContent = `${predictedTime.getHours().toString().padStart(2,'0')}:${predictedTime.getMinutes().toString().padStart(2,'0')}`;
                 predictionSpan.parentElement.style.background = '#27ae60'; // Green when live
+                sourceSpan.textContent = '(Live prediction)';
             } else {
                 const nextTimes = getNextScheduledTimes();
                 predictionSpan.textContent = nextTimes.length > 0 
                     ? `${nextTimes[0].hour.toString().padStart(2,'0')}:${nextTimes[0].minute.toString().padStart(2,'0')}`
                     : 'No departures';
                 predictionSpan.parentElement.style.background = '#3498db'; // Blue when static
+                sourceSpan.textContent = '(Scheduled fallback)';
             }
         }
 
@@ -141,11 +152,14 @@
             if (nextScheduled.length === 0) {
                 analysisContent.textContent = 'Service has ended for the day.';
                 statusIndicator.className = 'status-indicator status-info';
+                statusIndicator.setAttribute('aria-label', 'Status: Information');
             } else {
                 const next = nextScheduled[0];
                 const minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
-                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${minsUntil} mins)`;
-                statusIndicator.className = 'status-indicator status-info';
+                const countdown = minsUntil === 0 ? 'Due now' : `${minsUntil} ${minsUntil === 1 ? 'min' : 'mins'}`;
+                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${countdown})`;
+                statusIndicator.className = 'status-indicator status-good';
+                statusIndicator.setAttribute('aria-label', 'Status: Good service');
             }
             
             timestampDiv.textContent = `Updated: ${now.toLocaleTimeString('en-GB')}`;
