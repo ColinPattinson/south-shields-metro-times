@@ -1,0 +1,3 @@
+## 2026-04-06 - Enhanced Accessibility and Micro-UX Improvements
+**Learning:** Using semantic elements like `<ul>` and `<li>` instead of string joining with `<br>` significantly improves screen reader navigation by providing accurate list counts. Additionally, providing visually hidden context (e.g., distinguishing "Live" from "Scheduled" data) ensures that all users have access to critical state information that might otherwise be communicated solely through visual cues like background colors.
+**Action:** Always prioritize semantic HTML structures for lists and use the `.sr-only` pattern to bridge information gaps between visual and non-visual experiences, especially when communicating dynamic data sources.
