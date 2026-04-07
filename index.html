@@ -30,6 +30,7 @@
         .analysis-content { color: #2c3e50; line-height: 1.6; font-size: 1.2em; font-weight: 500; }
         .analysis-timestamp { color: #7f8c8d; font-size: 0.9em; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ecf0f1; }
         #scheduled-times { font-size: 1.4em; line-height: 1.8; }
+        #scheduled-times ul { list-style: none; padding: 0; margin: 0; }
         .static-note { 
             background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; 
             padding: 16px; margin-top: 20px; font-size: 0.95em; color: #856404; 
@@ -40,7 +41,7 @@
 <body>
     <h1 style="text-align: center;">South Shields Metro Departures</h1>
     
-    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time">Loading...</span></div>
+    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time" aria-live="polite">Loading...</span></div>
     
     <div class="card">
         <h2>Next Scheduled Times</h2>
@@ -48,8 +49,8 @@
     </div>
     
     <div class="service-analysis">
-        <h2><span class="status-indicator status-info" id="statusIndicator"></span>Next scheduled Departure:</h2>
-        <div id="analysisContent" class="analysis-content">Loading...</div>
+        <h2><span class="status-indicator status-info" id="statusIndicator" role="img"></span>Next scheduled Departure:</h2>
+        <div id="analysisContent" class="analysis-content" aria-live="polite">Loading...</div>
         <div class="analysis-timestamp" id="analysisTimestamp"></div>
     </div>
     
@@ -81,7 +82,7 @@
             const schedule = getScheduleForDay();
             let upcomingTimes = [];
             if (schedule[currentHour]) {
-                const validMinutes = schedule[currentHour].filter(m => m > currentMinute);
+                const validMinutes = schedule[currentHour].filter(m => m >= currentMinute);
                 upcomingTimes.push(...validMinutes.map(m => ({hour: currentHour, minute: m})));
             }
             let hour = currentHour + 1;
@@ -98,7 +99,7 @@
             const scheduledDiv = document.getElementById('scheduled-times');
             const nextTimes = getNextScheduledTimes();
             scheduledDiv.innerHTML = nextTimes.length > 0 
-                ? nextTimes.map(t => `${t.hour.toString().padStart(2,'0')}:${t.minute.toString().padStart(2,'0')}`).join('<br>')
+                ? `<ul>${nextTimes.map(t => `<li>${t.hour.toString().padStart(2,'0')}:${t.minute.toString().padStart(2,'0')}</li>`).join('')}</ul>`
                 : 'No more scheduled departures today';
         }
 
@@ -141,11 +142,14 @@
             if (nextScheduled.length === 0) {
                 analysisContent.textContent = 'Service has ended for the day.';
                 statusIndicator.className = 'status-indicator status-info';
+                statusIndicator.setAttribute('aria-label', 'Status: Information');
             } else {
                 const next = nextScheduled[0];
                 const minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
-                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${minsUntil} mins)`;
+                const timeText = minsUntil === 0 ? 'Due now' : `${minsUntil} ${minsUntil === 1 ? 'min' : 'mins'}`;
+                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${timeText})`;
                 statusIndicator.className = 'status-indicator status-info';
+                statusIndicator.setAttribute('aria-label', 'Status: Scheduled');
             }
             
             timestampDiv.textContent = `Updated: ${now.toLocaleTimeString('en-GB')}`;
