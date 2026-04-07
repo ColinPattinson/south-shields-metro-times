@@ -1,0 +1,3 @@
+## 2025-05-15 - [Improving Metro Departure Accessibility and Logic]
+**Learning:** Using semantic `<ul>`/`<li>` instead of `<br>` for time lists significantly improves screen reader navigation by providing accurate item counts. Adding `aria-live="polite"` ensures users with vision impairments receive real-time updates without being interrupted. Correctly handling the "0 minutes" case as "Due now" and fixing pluralization (e.g., "1 min") provides a more polished and intuitive experience.
+**Action:** Always favor semantic lists for multi-item data and ensure dynamic updates are announced via `aria-live` where appropriate. Double-check pluralization logic for all user-facing countdowns or counts.
