@@ -35,12 +35,38 @@
             padding: 16px; margin-top: 20px; font-size: 0.95em; color: #856404; 
             text-align: center;
         }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+        #refresh-button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #refresh-button:hover { background-color: #2980b9; }
+        #refresh-button:active { background-color: #1c598a; }
+        #refresh-button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
     </style>
 </head>
 <body>
     <h1 style="text-align: center;">South Shields Metro Departures</h1>
     
-    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time">Loading...</span></div>
+    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time" aria-live="polite">Loading...</span></div>
     
     <div class="card">
         <h2>Next Scheduled Times</h2>
@@ -48,11 +74,13 @@
     </div>
     
     <div class="service-analysis">
-        <h2><span class="status-indicator status-info" id="statusIndicator"></span>Next scheduled Departure:</h2>
-        <div id="analysisContent" class="analysis-content">Loading...</div>
+        <h2><span class="status-indicator status-info" id="statusIndicator" role="img" aria-label="Status: Information"></span>Next scheduled Departure:</h2>
+        <div id="analysisContent" class="analysis-content" aria-live="polite">Loading...</div>
         <div class="analysis-timestamp" id="analysisTimestamp"></div>
     </div>
     
+    <button id="refresh-button" onclick="manualRefresh()">Refresh Times</button>
+
     <div class="static-note">
         <strong>Live data:</strong> Via Cloudflare Worker proxy. Falls back to static schedule if unavailable. Auto-refreshes every 15s.
     </div>
@@ -97,9 +125,12 @@
         function displayScheduledTimes() {
             const scheduledDiv = document.getElementById('scheduled-times');
             const nextTimes = getNextScheduledTimes();
-            scheduledDiv.innerHTML = nextTimes.length > 0 
-                ? nextTimes.map(t => `${t.hour.toString().padStart(2,'0')}:${t.minute.toString().padStart(2,'0')}`).join('<br>')
-                : 'No more scheduled departures today';
+            if (nextTimes.length > 0) {
+                const list = nextTimes.map(t => `<li>${t.hour.toString().padStart(2,'0')}:${t.minute.toString().padStart(2,'0')}</li>`).join('');
+                scheduledDiv.innerHTML = `<ul style="list-style: none; padding: 0; margin: 0;">${list}</ul>`;
+            } else {
+                scheduledDiv.innerHTML = 'No more scheduled departures today';
+            }
         }
 
         async function fetchLiveData(endpoint) {
@@ -120,13 +151,15 @@
             if (data && data.length > 0) {
                 const now = new Date();
                 const predictedTime = new Date(now.getTime() + (data[0].dueIn - 2) * 60000);
-                predictionSpan.textContent = `${predictedTime.getHours().toString().padStart(2,'0')}:${predictedTime.getMinutes().toString().padStart(2,'0')}`;
+                const timeStr = `${predictedTime.getHours().toString().padStart(2,'0')}:${predictedTime.getMinutes().toString().padStart(2,'0')}`;
+                predictionSpan.innerHTML = `<span class="sr-only">Live prediction: </span>${timeStr}`;
                 predictionSpan.parentElement.style.background = '#27ae60'; // Green when live
             } else {
                 const nextTimes = getNextScheduledTimes();
-                predictionSpan.textContent = nextTimes.length > 0 
+                const timeStr = nextTimes.length > 0
                     ? `${nextTimes[0].hour.toString().padStart(2,'0')}:${nextTimes[0].minute.toString().padStart(2,'0')}`
                     : 'No departures';
+                predictionSpan.innerHTML = nextTimes.length > 0 ? `<span class="sr-only">Scheduled time: </span>${timeStr}` : timeStr;
                 predictionSpan.parentElement.style.background = '#3498db'; // Blue when static
             }
         }
@@ -141,11 +174,14 @@
             if (nextScheduled.length === 0) {
                 analysisContent.textContent = 'Service has ended for the day.';
                 statusIndicator.className = 'status-indicator status-info';
+                statusIndicator.setAttribute('aria-label', 'Status: Information');
             } else {
                 const next = nextScheduled[0];
                 const minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
-                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${minsUntil} mins)`;
+                const timeLabel = minsUntil === 0 ? 'Due now' : `${minsUntil} ${minsUntil === 1 ? 'min' : 'mins'}`;
+                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${timeLabel})`;
                 statusIndicator.className = 'status-indicator status-info';
+                statusIndicator.setAttribute('aria-label', 'Status: Information');
             }
             
             timestampDiv.textContent = `Updated: ${now.toLocaleTimeString('en-GB')}`;
@@ -156,6 +192,18 @@
             displayScheduledTimes();
             await fetchPrediction();
             analyzeService();
+        }
+
+        async function manualRefresh() {
+            const btn = document.getElementById('refresh-button');
+            btn.disabled = true;
+            btn.textContent = 'Refreshing...';
+            try {
+                await updateAll();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Refresh Times';
+            }
         }
         
         updateAll();
