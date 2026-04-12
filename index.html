@@ -23,10 +23,13 @@
             display: flex; align-items: center; gap: 10px; 
         }
         .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-        .status-good { background-color: #27ae60; }
+        .status-good { background-color: #1b5e20; }
         .status-warning { background-color: #f39c12; }
         .status-error { background-color: #e74c3c; }
-        .status-info { background-color: #3498db; }
+        .status-info { background-color: #1565c0; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+        .refresh-btn { background: #1565c0; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; margin: 10px auto; display: block; }
+        .refresh-btn:disabled { background: #bdc3c7; }
         .analysis-content { color: #2c3e50; line-height: 1.6; font-size: 1.2em; font-weight: 500; }
         .analysis-timestamp { color: #7f8c8d; font-size: 0.9em; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ecf0f1; }
         #scheduled-times { font-size: 1.4em; line-height: 1.8; }
@@ -40,16 +43,15 @@
 <body>
     <h1 style="text-align: center;">South Shields Metro Departures</h1>
     
-    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time">Loading...</span></div>
-    
+    <div id="predicted-departure" style="background: #1565c0">Predicted next departure time: <span id="prediction-time" aria-live="polite">Loading...</span></div>
+    <button id="refresh-btn" class="refresh-btn" onclick="updateAll()">Refresh Live Times</button>
     <div class="card">
         <h2>Next Scheduled Times</h2>
         <div id="scheduled-times">Loading...</div>
     </div>
-    
     <div class="service-analysis">
-        <h2><span class="status-indicator status-info" id="statusIndicator"></span>Next scheduled Departure:</h2>
-        <div id="analysisContent" class="analysis-content">Loading...</div>
+        <h2><span class="status-indicator status-info" id="statusIndicator" role="img" aria-label="Status"></span>Next scheduled Departure:</h2>
+        <div id="analysisContent" class="analysis-content" aria-live="polite">Loading...</div>
         <div class="analysis-timestamp" id="analysisTimestamp"></div>
     </div>
     
@@ -95,11 +97,9 @@
         }
 
         function displayScheduledTimes() {
-            const scheduledDiv = document.getElementById('scheduled-times');
             const nextTimes = getNextScheduledTimes();
-            scheduledDiv.innerHTML = nextTimes.length > 0 
-                ? nextTimes.map(t => `${t.hour.toString().padStart(2,'0')}:${t.minute.toString().padStart(2,'0')}`).join('<br>')
-                : 'No more scheduled departures today';
+            const list = nextTimes.map(t => `<li>${t.hour.toString().padStart(2,'0')}:${t.minute.toString().padStart(2,'0')}</li>`).join('');
+            document.getElementById('scheduled-times').innerHTML = nextTimes.length ? `<ul style="list-style:none;padding:0;margin:0">${list}</ul>` : 'No more departures';
         }
 
         async function fetchLiveData(endpoint) {
@@ -115,47 +115,40 @@
 
         async function fetchPrediction() {
             const data = await fetchLiveData('/api/times/CHI/2');
-            const predictionSpan = document.getElementById('prediction-time');
-            
+            const span = document.getElementById('prediction-time');
             if (data && data.length > 0) {
-                const now = new Date();
-                const predictedTime = new Date(now.getTime() + (data[0].dueIn - 2) * 60000);
-                predictionSpan.textContent = `${predictedTime.getHours().toString().padStart(2,'0')}:${predictedTime.getMinutes().toString().padStart(2,'0')}`;
-                predictionSpan.parentElement.style.background = '#27ae60'; // Green when live
+                const predictedTime = new Date(Date.now() + (data[0].dueIn - 2) * 60000);
+                const timeStr = `${predictedTime.getHours().toString().padStart(2,'0')}:${predictedTime.getMinutes().toString().padStart(2,'0')}`;
+                span.innerHTML = `${timeStr} <span class="sr-only">(Live)</span>`;
+                span.parentElement.style.background = '#1b5e20';
             } else {
-                const nextTimes = getNextScheduledTimes();
-                predictionSpan.textContent = nextTimes.length > 0 
-                    ? `${nextTimes[0].hour.toString().padStart(2,'0')}:${nextTimes[0].minute.toString().padStart(2,'0')}`
-                    : 'No departures';
-                predictionSpan.parentElement.style.background = '#3498db'; // Blue when static
+                const next = getNextScheduledTimes()[0];
+                const timeStr = next ? `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')}` : 'No departures';
+                span.innerHTML = `${timeStr} <span class="sr-only">(Scheduled)</span>`;
+                span.parentElement.style.background = '#1565c0';
             }
         }
 
         function analyzeService() {
-            const now = new Date();
-            const nextScheduled = getNextScheduledTimes();
-            const analysisContent = document.getElementById('analysisContent');
-            const statusIndicator = document.getElementById('statusIndicator');
-            const timestampDiv = document.getElementById('analysisTimestamp');
-
-            if (nextScheduled.length === 0) {
-                analysisContent.textContent = 'Service has ended for the day.';
-                statusIndicator.className = 'status-indicator status-info';
+            const next = getNextScheduledTimes()[0];
+            const content = document.getElementById('analysisContent'), indicator = document.getElementById('statusIndicator');
+            if (!next) {
+                content.textContent = 'Service ended.';
+                indicator.setAttribute('aria-label', 'Service ended');
             } else {
-                const next = nextScheduled[0];
-                const minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
-                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${minsUntil} mins)`;
-                statusIndicator.className = 'status-indicator status-info';
+                const mins = next.hour * 60 + next.minute - (new Date().getHours() * 60 + new Date().getMinutes());
+                const due = mins <= 0 ? 'Due now' : `${mins} min${mins===1?'':'s'}`;
+                content.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${due})`;
+                indicator.setAttribute('aria-label', `Next departure in ${due}`);
             }
-            
-            timestampDiv.textContent = `Updated: ${now.toLocaleTimeString('en-GB')}`;
+            document.getElementById('analysisTimestamp').textContent = `Updated: ${new Date().toLocaleTimeString('en-GB')}`;
         }
 
-        // Load everything
         async function updateAll() {
-            displayScheduledTimes();
-            await fetchPrediction();
-            analyzeService();
+            const btn = document.getElementById('refresh-btn');
+            btn.disabled = true; btn.textContent = 'Refreshing...';
+            try { displayScheduledTimes(); await fetchPrediction(); analyzeService(); }
+            finally { btn.disabled = false; btn.textContent = 'Refresh Live Times'; }
         }
         
         updateAll();
