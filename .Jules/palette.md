@@ -1,0 +1,3 @@
+## 2025-05-15 - Screen Reader Context for Color-Coded States
+**Learning:** The application used background colors (blue vs green) to distinguish between scheduled and live data, which is inaccessible to screen reader users and users with color blindness. Standard status colors like #27ae60 and #3498db also failed WCAG AA contrast requirements with white text.
+**Action:** Always pair color changes with visually hidden textual descriptions (`.sr-only`) and ensure background colors meet a minimum 4.5:1 contrast ratio (WCAG AA) or 7:1 (WCAG AAA) for maximum accessibility. Use CSS classes and transitions for state changes instead of direct JS style manipulation.
