@@ -81,7 +81,7 @@
             const schedule = getScheduleForDay();
             let upcomingTimes = [];
             if (schedule[currentHour]) {
-                const validMinutes = schedule[currentHour].filter(m => m > currentMinute);
+                const validMinutes = schedule[currentHour].filter(m => m >= currentMinute);
                 upcomingTimes.push(...validMinutes.map(m => ({hour: currentHour, minute: m})));
             }
             let hour = currentHour + 1;
@@ -144,7 +144,8 @@
             } else {
                 const next = nextScheduled[0];
                 const minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
-                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${minsUntil} mins)`;
+                const displayMins = minsUntil === 0 ? 'Due now' : `${minsUntil} ${minsUntil === 1 ? 'min' : 'mins'}`;
+                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${displayMins})`;
                 statusIndicator.className = 'status-indicator status-info';
             }
             
