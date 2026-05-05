@@ -35,12 +35,32 @@
             padding: 16px; margin-top: 20px; font-size: 0.95em; color: #856404; 
             text-align: center;
         }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+        #refresh-btn {
+            background: #2c3e50; color: white; border: none; padding: 10px 20px;
+            border-radius: 4px; cursor: pointer; font-size: 1rem; margin-top: 10px;
+            display: block; margin-left: auto; margin-right: auto;
+        }
+        #refresh-btn:disabled { background: #95a5a6; cursor: not-allowed; }
     </style>
 </head>
 <body>
     <h1 style="text-align: center;">South Shields Metro Departures</h1>
     
-    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time">Loading...</span></div>
+    <div id="predicted-departure" aria-live="polite">
+        Predicted next departure: <span id="prediction-time">Loading...</span>
+        <span id="status-label" class="sr-only"></span>
+    </div>
     
     <div class="card">
         <h2>Next Scheduled Times</h2>
@@ -55,6 +75,7 @@
     
     <div class="static-note">
         <strong>Live data:</strong> Via Cloudflare Worker proxy. Falls back to static schedule if unavailable. Auto-refreshes every 15s.
+        <button id="refresh-btn" onclick="handleManualRefresh()" aria-label="Refresh departure times">Refresh Data</button>
     </div>
 
     <script>
@@ -116,18 +137,21 @@
         async function fetchPrediction() {
             const data = await fetchLiveData('/api/times/CHI/2');
             const predictionSpan = document.getElementById('prediction-time');
+            const statusLabel = document.getElementById('status-label');
             
             if (data && data.length > 0) {
                 const now = new Date();
                 const predictedTime = new Date(now.getTime() + (data[0].dueIn - 2) * 60000);
                 predictionSpan.textContent = `${predictedTime.getHours().toString().padStart(2,'0')}:${predictedTime.getMinutes().toString().padStart(2,'0')}`;
                 predictionSpan.parentElement.style.background = '#27ae60'; // Green when live
+                statusLabel.textContent = '(Live update)';
             } else {
                 const nextTimes = getNextScheduledTimes();
                 predictionSpan.textContent = nextTimes.length > 0 
                     ? `${nextTimes[0].hour.toString().padStart(2,'0')}:${nextTimes[0].minute.toString().padStart(2,'0')}`
                     : 'No departures';
                 predictionSpan.parentElement.style.background = '#3498db'; // Blue when static
+                statusLabel.textContent = '(Scheduled time)';
             }
         }
 
@@ -149,6 +173,19 @@
             }
             
             timestampDiv.textContent = `Updated: ${now.toLocaleTimeString('en-GB')}`;
+        }
+
+        async function handleManualRefresh() {
+            const btn = document.getElementById('refresh-btn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Refreshing...';
+            try {
+                await updateAll();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
         }
 
         // Load everything
