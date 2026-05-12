@@ -35,12 +35,25 @@
             padding: 16px; margin-top: 20px; font-size: 0.95em; color: #856404; 
             text-align: center;
         }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+        .is-live { background-color: #1e8449 !important; color: white; }
+        .is-scheduled { background-color: #2980b9 !important; color: white; }
+        .header-container { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; }
+        #refresh-btn { padding: 8px 16px; font-size: 0.9em; cursor: pointer; background: #ecf0f1; border: 1px solid #bdc3c7; border-radius: 4px; transition: all 0.2s; }
+        #refresh-btn:hover { background: #dcdde1; }
+        #refresh-btn:disabled { opacity: 0.6; cursor: not-allowed; }
     </style>
 </head>
 <body>
-    <h1 style="text-align: center;">South Shields Metro Departures</h1>
+    <div class="header-container">
+        <h1>South Shields Metro Departures</h1>
+        <button id="refresh-btn" aria-label="Refresh departures">Refresh</button>
+    </div>
     
-    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time">Loading...</span></div>
+    <div id="predicted-departure" aria-live="polite">
+        <span id="status-label" class="sr-only">Checking status...</span>
+        Predicted next departure time: <span id="prediction-time">Loading...</span>
+    </div>
     
     <div class="card">
         <h2>Next Scheduled Times</h2>
@@ -68,30 +81,23 @@
             sunday: {6:[56],7:[26,56],8:[26,56],9:[26,56],10:[11,26,41,56],11:[11,26,41,56],12:[11,26,41,56],13:[11,26,41,56],14:[11,26,41,56],15:[11,26,41,56],16:[11,26,41,56],17:[11,26,41,56],18:[11,26,41,56],19:[11,26,41,56],20:[11,26,41,56],21:[11,26,41,56],22:[11,26,41,56],23:[11,26,41,56]}
         };
 
-        function getScheduleForDay() {
-            const today = new Date();
-            const dayOfWeek = today.getDay();
-            return dayOfWeek === 0 ? schedules.sunday : dayOfWeek === 6 ? schedules.saturday : schedules.weekday;
+        function getScheduleForDay(date = new Date()) {
+            const day = date.getDay();
+            return day === 0 ? schedules.sunday : day === 6 ? schedules.saturday : schedules.weekday;
         }
 
         function getNextScheduledTimes() {
             const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            const schedule = getScheduleForDay();
-            let upcomingTimes = [];
-            if (schedule[currentHour]) {
-                const validMinutes = schedule[currentHour].filter(m => m > currentMinute);
-                upcomingTimes.push(...validMinutes.map(m => ({hour: currentHour, minute: m})));
-            }
-            let hour = currentHour + 1;
-            while (upcomingTimes.length < 4 && hour <= 23) {
-                if (schedule[hour]) {
-                    upcomingTimes.push(...schedule[hour].map(m => ({hour: hour, minute: m})));
+            let upcoming = [];
+            for (let i = 0; i < 24 && upcoming.length < 4; i++) {
+                const d = new Date(now.getTime() + i * 3600000);
+                const h = d.getHours(), s = getScheduleForDay(d);
+                if (s[h]) {
+                    const mins = i === 0 ? s[h].filter(m => m >= now.getMinutes()) : s[h];
+                    upcoming.push(...mins.map(m => ({ hour: h, minute: m })));
                 }
-                hour++;
             }
-            return upcomingTimes.slice(0, 4);
+            return upcoming.slice(0, 4);
         }
 
         function displayScheduledTimes() {
@@ -116,18 +122,24 @@
         async function fetchPrediction() {
             const data = await fetchLiveData('/api/times/CHI/2');
             const predictionSpan = document.getElementById('prediction-time');
+            const container = predictionSpan.parentElement;
+            const statusLabel = document.getElementById('status-label');
             
             if (data && data.length > 0) {
                 const now = new Date();
                 const predictedTime = new Date(now.getTime() + (data[0].dueIn - 2) * 60000);
                 predictionSpan.textContent = `${predictedTime.getHours().toString().padStart(2,'0')}:${predictedTime.getMinutes().toString().padStart(2,'0')}`;
-                predictionSpan.parentElement.style.background = '#27ae60'; // Green when live
+                container.classList.remove('is-scheduled');
+                container.classList.add('is-live');
+                statusLabel.textContent = 'Live departure: ';
             } else {
                 const nextTimes = getNextScheduledTimes();
                 predictionSpan.textContent = nextTimes.length > 0 
                     ? `${nextTimes[0].hour.toString().padStart(2,'0')}:${nextTimes[0].minute.toString().padStart(2,'0')}`
                     : 'No departures';
-                predictionSpan.parentElement.style.background = '#3498db'; // Blue when static
+                container.classList.remove('is-live');
+                container.classList.add('is-scheduled');
+                statusLabel.textContent = 'Scheduled departure: ';
             }
         }
 
@@ -143,8 +155,15 @@
                 statusIndicator.className = 'status-indicator status-info';
             } else {
                 const next = nextScheduled[0];
-                const minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
-                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${minsUntil} mins)`;
+                let minsUntil = (next.hour * 60 + next.minute) - (now.getHours() * 60 + now.getMinutes());
+                if (minsUntil < 0) minsUntil += 1440; // Midnight wrap-around
+
+                const timeStr = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')}`;
+                if (minsUntil === 0) {
+                    analysisContent.textContent = `${timeStr} (Due now)`;
+                } else {
+                    analysisContent.textContent = `${timeStr} (${minsUntil} ${minsUntil === 1 ? 'min' : 'mins'})`;
+                }
                 statusIndicator.className = 'status-indicator status-info';
             }
             
@@ -152,12 +171,26 @@
         }
 
         // Load everything
-        async function updateAll() {
-            displayScheduledTimes();
-            await fetchPrediction();
-            analyzeService();
+        async function updateAll(isManual = false) {
+            const refreshBtn = document.getElementById('refresh-btn');
+            if (isManual) {
+                refreshBtn.disabled = true;
+                refreshBtn.textContent = 'Refreshing...';
+            }
+            try {
+                displayScheduledTimes();
+                await fetchPrediction();
+                analyzeService();
+            } finally {
+                if (isManual) {
+                    refreshBtn.disabled = false;
+                    refreshBtn.textContent = 'Refresh';
+                }
+            }
         }
         
+        document.getElementById('refresh-btn').addEventListener('click', () => updateAll(true));
+
         updateAll();
         setInterval(updateAll, 15000);
     </script>
