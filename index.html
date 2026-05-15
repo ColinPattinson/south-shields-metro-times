@@ -29,6 +29,19 @@
         .status-info { background-color: #3498db; }
         .analysis-content { color: #2c3e50; line-height: 1.6; font-size: 1.2em; font-weight: 500; }
         .analysis-timestamp { color: #7f8c8d; font-size: 0.9em; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ecf0f1; }
+        .is-live { background: #1e8449 !important; color: white !important; }
+        .is-scheduled { background: #2980b9 !important; color: white !important; }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
         #scheduled-times { font-size: 1.4em; line-height: 1.8; }
         .static-note { 
             background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; 
@@ -40,7 +53,10 @@
 <body>
     <h1 style="text-align: center;">South Shields Metro Departures</h1>
     
-    <div id="predicted-departure">Predicted next departure time: <span id="prediction-time">Loading...</span></div>
+    <div id="predicted-departure" aria-live="polite" role="region">
+        <span id="status-label" class="sr-only"></span>
+        Predicted next departure time: <span id="prediction-time">Loading...</span>
+    </div>
     
     <div class="card">
         <h2>Next Scheduled Times</h2>
@@ -81,7 +97,7 @@
             const schedule = getScheduleForDay();
             let upcomingTimes = [];
             if (schedule[currentHour]) {
-                const validMinutes = schedule[currentHour].filter(m => m > currentMinute);
+                const validMinutes = schedule[currentHour].filter(m => m >= currentMinute);
                 upcomingTimes.push(...validMinutes.map(m => ({hour: currentHour, minute: m})));
             }
             let hour = currentHour + 1;
@@ -116,18 +132,24 @@
         async function fetchPrediction() {
             const data = await fetchLiveData('/api/times/CHI/2');
             const predictionSpan = document.getElementById('prediction-time');
+            const statusLabel = document.getElementById('status-label');
+            const container = document.getElementById('predicted-departure');
             
             if (data && data.length > 0) {
                 const now = new Date();
                 const predictedTime = new Date(now.getTime() + (data[0].dueIn - 2) * 60000);
                 predictionSpan.textContent = `${predictedTime.getHours().toString().padStart(2,'0')}:${predictedTime.getMinutes().toString().padStart(2,'0')}`;
-                predictionSpan.parentElement.style.background = '#27ae60'; // Green when live
+                statusLabel.textContent = 'Live';
+                container.classList.add('is-live');
+                container.classList.remove('is-scheduled');
             } else {
                 const nextTimes = getNextScheduledTimes();
                 predictionSpan.textContent = nextTimes.length > 0 
                     ? `${nextTimes[0].hour.toString().padStart(2,'0')}:${nextTimes[0].minute.toString().padStart(2,'0')}`
                     : 'No departures';
-                predictionSpan.parentElement.style.background = '#3498db'; // Blue when static
+                statusLabel.textContent = 'Scheduled';
+                container.classList.add('is-scheduled');
+                container.classList.remove('is-live');
             }
         }
 
@@ -143,8 +165,11 @@
                 statusIndicator.className = 'status-indicator status-info';
             } else {
                 const next = nextScheduled[0];
-                const minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
-                analysisContent.textContent = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')} (${minsUntil} mins)`;
+                let minsUntil = next.hour * 60 + next.minute - (now.getHours() * 60 + now.getMinutes());
+                if (minsUntil < 0) minsUntil += 1440;
+                const timeText = `${next.hour.toString().padStart(2,'0')}:${next.minute.toString().padStart(2,'0')}`;
+                const countdownText = minsUntil === 0 ? 'Due now' : `${minsUntil} ${minsUntil === 1 ? 'min' : 'mins'}`;
+                analysisContent.textContent = `${timeText} (${countdownText})`;
                 statusIndicator.className = 'status-indicator status-info';
             }
             
