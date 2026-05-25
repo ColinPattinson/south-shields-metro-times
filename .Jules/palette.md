@@ -1,0 +1,3 @@
+## 2026-05-25 - Accessible State Indicators
+**Learning:** Visual-only state indicators (like background colors for 'Live' vs 'Scheduled') are inaccessible to screen reader users and users with color blindness. Using a 'Screen Reader Context Pattern' with a visually hidden `.sr-only` element that updates its text alongside the visual change ensures all users receive the same state information.
+**Action:** Always pair visual state changes with a `.sr-only` descriptive label and ensure colors meet WCAG AA contrast ratios (e.g., using #1b7a43 for green and #206694 for blue instead of lighter, non-compliant shades).
