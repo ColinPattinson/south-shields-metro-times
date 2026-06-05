@@ -1,0 +1,3 @@
+## 2026-06-05 - Improving Departure Clarity and Accessibility
+**Learning:** The application used color alone (green/blue) to distinguish between 'Live' and 'Scheduled' departures, which is inaccessible to color-blind users and screen readers. Additionally, a strict greater-than comparison on minutes created a 60-second 'dead zone' where upcoming departures were hidden until they actually passed.
+**Action:** Always use a 'Screen Reader Context Pattern' (visually hidden text inside an aria-live region) to communicate state changes that are otherwise only visual. Use inclusive comparisons (>=) for time-based filtering to ensure 'Due now' states are correctly captured.
