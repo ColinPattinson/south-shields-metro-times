@@ -1,0 +1,3 @@
+## 2025-05-14 - Accessibility and Timing Improvements
+**Learning:** The application used color-coded backgrounds (#27ae60 for Live, #3498db for Scheduled) without textual indicators, making the state inaccessible to screen readers and potentially confusing for color-blind users. Additionally, the timetable filtering logic used an exclusive check (m > currentMinute), causing departures occurring within the current minute to be hidden until they passed.
+**Action:** Always pair visual state indicators with `.sr-only` labels (e.g., "Live prediction:") and ensure inclusive checks (e.g., m >= currentMinute) for time-sensitive filtering to avoid 'dead zones' in the UI.
